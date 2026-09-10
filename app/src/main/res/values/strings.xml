@@ -1165,4 +1165,29 @@
     <string name="driver_none">None</string>
     <string name="show_all_devices">Show all Bluetooth devices</string>
     <string name="show_only_phones">Show only phones</string>
+
+    <!-- Ride tracking -->
+    <string name="ride_tracking_notification_channel_name">Ride Tracking</string>
+    <string name="ride_tracking_notification_title">Recording ride</string>
+    <string name="ride_tracking_notification_text">Tracking your ride in the background</string>
+    <string name="ride_tracker_title">Ride Tracker</string>
+    <string name="ride_status_idle">Not riding</string>
+    <string name="ride_status_riding">Riding — %1$s km so far</string>
+    <string name="ride_action_start">Start Ride</string>
+    <string name="ride_action_stop">Stop Ride</string>
+    <string name="ride_history_title">Ride History</string>
+    <string name="ride_history_empty">No rides recorded yet</string>
+    <string name="ride_history_item_summary">%1$.1f km · %2$d min</string>
+    <string name="ride_detail_title">Ride Detail</string>
+    <string name="ride_stat_distance">Distance</string>
+    <string name="ride_stat_duration">Duration</string>
+    <string name="ride_stat_moving_time">Moving time</string>
+    <string name="ride_stat_avg_speed">Avg moving speed</string>
+    <string name="ride_stat_max_speed">Max speed</string>
+    <string name="ride_stat_gps_quality">GPS quality</string>
+    <string name="ride_stat_gps_quality_value">%1$d/%2$d points used, avg accuracy %3$dm</string>
+    <string name="ride_stat_km_value">%1$.2f km</string>
+    <string name="ride_stat_kmh_value">%1$.0f km/h</string>
+    <string name="ride_stat_duration_hours_minutes">%1$dh %2$dm</string>
+    <string name="ride_stat_duration_minutes">%1$dm</string>
 </resources>

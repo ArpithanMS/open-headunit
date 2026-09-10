@@ -22,7 +22,45 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_homeFragment_to_rideTrackerFragment"
+            app:destination="@id/rideTrackerFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
+
+    <fragment
+        android:id="@+id/rideTrackerFragment"
+        android:name="com.andrerinas.openheadunit.ride.presentation.RideTrackerFragment"
+        android:label="@string/ride_tracker_title">
+        <action
+            android:id="@+id/action_rideTrackerFragment_to_rideHistoryFragment"
+            app:destination="@id/rideHistoryFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/rideHistoryFragment"
+        android:name="com.andrerinas.openheadunit.ride.presentation.RideHistoryFragment"
+        android:label="@string/ride_history_title">
+        <action
+            android:id="@+id/action_rideHistoryFragment_to_rideDetailFragment"
+            app:destination="@id/rideDetailFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/rideDetailFragment"
+        android:name="com.andrerinas.openheadunit.ride.presentation.RideDetailFragment"
+        android:label="@string/ride_detail_title" />
 
     <fragment
         android:id="@+id/settingsFragment"

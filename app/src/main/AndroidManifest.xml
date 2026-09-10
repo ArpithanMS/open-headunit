@@ -4,7 +4,8 @@
 
     <uses-sdk tools:overrideLibrary="
         com.google.android.gms.nearby, com.google.android.gms.base, com.google.android.gms.tasks, com.google.android.gms.common,
-        rikka.shizuku.api, rikka.shizuku.shared, rikka.shizuku.aidl, com.topjohnwu.superuser" />
+        rikka.shizuku.api, rikka.shizuku.shared, rikka.shizuku.aidl, com.topjohnwu.superuser,
+        androidx.room, androidx.room.ktx, androidx.annotation.experimental, androidx.sqlite.db.framework, androidx.sqlite.db" />
 
     <queries>
         <package android:name="com.google.android.projection.gearhead" />
@@ -69,6 +70,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <!-- Declared so the microphone type can be claimed; it is only ever requested when
          RECORD_AUDIO is actually granted, because claiming it without throws on Android 14+. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
@@ -234,6 +236,10 @@
             </intent-filter>
         </service>
         <service android:name=".location.GpsLocationService" />
+        <service
+            android:name=".ride.service.RideTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <!-- AndroidX MediaButtonReceiver: Routes MEDIA_BUTTON intents to AapService
              on Android 8+ where implicit broadcasts to manifest-registered receivers

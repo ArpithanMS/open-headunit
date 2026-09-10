@@ -22,6 +22,7 @@ import com.andrerinas.openheadunit.utils.AppThemeManager
 import com.andrerinas.openheadunit.utils.Settings
 import android.os.SystemClock
 import com.andrerinas.openheadunit.main.FloatingButtonManager
+import com.andrerinas.openheadunit.ride.service.RideTrackingService
 import java.io.File
 
 class App : Application(), Application.ActivityLifecycleCallbacks {
@@ -90,6 +91,7 @@ class App : Application(), Application.ActivityLifecycleCallbacks {
             notificationManager.createNotificationChannel(mediaChannel)
 
             AapNavigation.createNotificationChannel(this)
+            RideTrackingService.createNotificationChannel(this)
 
             val bootChannel = NotificationChannel(bootStartChannel, "Boot Auto-Start", NotificationManager.IMPORTANCE_HIGH)
             bootChannel.description = "Shown once after boot to open the app"

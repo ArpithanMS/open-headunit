@@ -80,6 +80,7 @@ class HomeFragment : Fragment() {
     private lateinit var wifi: Button
     private lateinit var wifi_text_view: TextView
     private lateinit var exitButton: Button
+    private lateinit var rideTrackerButton: View
     private lateinit var self_mode_text: TextView
     private var hasAttemptedAutoConnect = false
     private var hasAttemptedSingleUsbAutoConnect = false
@@ -111,6 +112,7 @@ class HomeFragment : Fragment() {
         wifi_text_view = view.findViewById(R.id.wifi_text)
         exitButton = view.findViewById(R.id.exit_button)
         self_mode_text = view.findViewById(R.id.self_mode_text)
+        rideTrackerButton = view.findViewById(R.id.ride_tracker_button)
 
         // Portrait layout: cap grid width so square buttons never overflow
         // into the WiFi-pill or Exit-button areas on compact/square devices.
@@ -458,6 +460,13 @@ class HomeFragment : Fragment() {
             startActivity(intent)
         }
 
+        rideTrackerButton.setOnClickListener {
+            val controller = findNavController()
+            if (controller.currentDestination?.id == R.id.homeFragment) {
+                controller.navigate(R.id.action_homeFragment_to_rideTrackerFragment)
+            }
+        }
+
         wifi.setOnClickListener {
             val mode = App.provide(requireContext()).settings.wifiConnectionMode
             when (mode) {
@@ -726,6 +735,12 @@ class HomeFragment : Fragment() {
         if (appSettings.nativeDriverSelectionMode == NativeDriverSelectionPolicy.Mode.DISABLED) return
         val adapter = BluetoothHelper.getBluetoothAdapter(requireContext())
         if (adapter == null || !adapter.isEnabled) return
+        // On API 31+, bondedDevices throws SecurityException without BLUETOOTH_CONNECT - a fresh
+        // install has it granted to nothing yet, and this runs unconditionally on every resume.
+        if (Build.VERSION.SDK_INT >= 31 && ContextCompat.checkSelfPermission(
+                requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT
+            ) != PackageManager.PERMISSION_GRANTED
+        ) return
 
         val bonded = adapter.bondedDevices?.toList() ?: emptyList()
         val connected = BluetoothHelper.getConnectedBluetoothDevices(requireContext())
@@ -773,6 +788,12 @@ class HomeFragment : Fragment() {
             Toast.makeText(requireContext(), getString(R.string.bt_not_enabled), Toast.LENGTH_SHORT).show()
             return
         }
+        // Same fresh-install guard as checkNativeDriverSelectionOnStartup(): bondedDevices throws
+        // SecurityException on API 31+ without BLUETOOTH_CONNECT granted.
+        if (Build.VERSION.SDK_INT >= 31 && ContextCompat.checkSelfPermission(
+                requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT
+            ) != PackageManager.PERMISSION_GRANTED
+        ) return
 
         val bondedDevices = adapter.bondedDevices?.toList() ?: emptyList()
         if (bondedDevices.isEmpty()) {
@@ -932,10 +953,14 @@ class HomeFragment : Fragment() {
             driverCountdownTimer?.cancel()
             driverCountdownTimer = null
             activeDialog = null
-            val cancelIntent = Intent(requireContext(), AapService::class.java).apply {
-                action = AapService.ACTION_NATIVE_AA_CANCEL_POKE
+            // Called from onCancelListener too, which - like onDismissListener above - can fire
+            // during teardown once the fragment is genuinely detached.
+            if (isAdded) {
+                val cancelIntent = Intent(requireContext(), AapService::class.java).apply {
+                    action = AapService.ACTION_NATIVE_AA_CANCEL_POKE
+                }
+                ContextCompat.startForegroundService(requireContext(), cancelIntent)
             }
-            ContextCompat.startForegroundService(requireContext(), cancelIntent)
         }
 
         val dialog = MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
@@ -955,7 +980,10 @@ class HomeFragment : Fragment() {
             driverCountdownTimer?.cancel()
             driverCountdownTimer = null
             activeDialog = null
-            if (!selectionResolved) {
+            // isAdded stays true through onPause (only onDetach/full teardown clears it), so this
+            // still runs for the onPause-triggered dismiss the comment below describes - it only
+            // skips once the fragment is genuinely gone and requireContext() would crash.
+            if (!selectionResolved && isAdded) {
                 // onPause dismisses the dialog, which reaches here and never onCancel. Without
                 // this the prompt flag stayed set and every phone was refused.
                 val dismissIntent = Intent(requireContext(), AapService::class.java).apply {
@@ -1019,6 +1047,7 @@ class HomeFragment : Fragment() {
         }
 
         dialog.setOnShowListener {
+            if (!isAdded) return@setOnShowListener
             (activity as? MainActivity)?.dismissSplashImmediately()
             val promptIntent = Intent(requireContext(), AapService::class.java).apply {
                 action = AapService.ACTION_NATIVE_AA_PROMPT_SHOWN

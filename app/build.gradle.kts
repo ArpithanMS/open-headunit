@@ -285,4 +285,9 @@ dependencies {
     // Shizuku for root / shell access
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("com.github.topjohnwu.libsu:core:6.0.0")
+
+    // Room, for the Ride Engine's local ride/point persistence (see ride/data/).
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
 }
