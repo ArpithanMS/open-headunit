@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
+import androidx.constraintlayout.widget.Group
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -88,11 +89,13 @@ class RideDetailFragment : Fragment() {
 
         val dateText = view.findViewById<TextView>(R.id.ride_detail_date)
         val gpsQualityFootnote = view.findViewById<TextView>(R.id.gps_quality_footnote)
+        val foundContentGroup = view.findViewById<Group>(R.id.ride_found_content_group)
+        val notFoundMessage = view.findViewById<TextView>(R.id.ride_not_found_message)
         // app_bar already carries its own fixed scrim in XML (contrast protection over the
         // route, not theme-driven), and the map itself must never get a painted background the
         // way RideInstrumentStyler.style() would apply to a root view - that would hide the
         // tiles - so only the floating text gets themed here.
-        RideInstrumentStyler.applyTextOnly(primary = emptyList(), secondary = listOf(dateText))
+        RideInstrumentStyler.applyTextOnly(primary = emptyList(), secondary = listOf(dateText, notFoundMessage))
 
         if (isMapSupported()) {
             setUpMap(view, savedInstanceState)
@@ -103,31 +106,40 @@ class RideDetailFragment : Fragment() {
         }
 
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
-            if (state == null) return@observe
+            when (state) {
+                null -> Unit // still loading
+                is RideDetailViewModel.UiState.NotFound -> {
+                    foundContentGroup.visibility = View.GONE
+                    notFoundMessage.visibility = View.VISIBLE
+                    routeGeometryView.setRoute(emptyList())
+                }
+                is RideDetailViewModel.UiState.Found -> {
+                    foundContentGroup.visibility = View.VISIBLE
+                    notFoundMessage.visibility = View.GONE
 
-            state.ride?.let { ride ->
-                dateText.text = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault())
-                    .format(Date(ride.startTimestampMs))
-            }
+                    dateText.text = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault())
+                        .format(Date(state.ride.startTimestampMs))
 
-            routeGeometryView.setRoute(state.acceptedRoutePoints)
+                    routeGeometryView.setRoute(state.acceptedRoutePoints)
 
-            mapView?.getMapAsync { map ->
-                map.setStyle(Style.Builder().fromUri(MAP_STYLE_URL)) {
-                    renderRoute(map = map, points = state.acceptedRoutePoints, segments = state.speedSegments)
-                    // The enhanced map now shows real tiles and the same route - the always-on
-                    // Canvas baseline underneath it has done its job of being visible instantly.
-                    routeGeometryView.visibility = View.GONE
+                    mapView?.getMapAsync { map ->
+                        map.setStyle(Style.Builder().fromUri(MAP_STYLE_URL)) {
+                            renderRoute(map = map, points = state.acceptedRoutePoints, segments = state.speedSegments)
+                            // The enhanced map now shows real tiles and the same route - the
+                            // always-on Canvas baseline has done its job of being visible instantly.
+                            routeGeometryView.visibility = View.GONE
+                        }
+                    }
+
+                    gpsQualityFootnote.text = getString(
+                        R.string.ride_stat_gps_quality_value,
+                        state.routeStatistics.acceptedPointCount, state.routeStatistics.totalPointCount,
+                        state.routeStatistics.averageAccuracyMeters.roundToInt()
+                    )
+
+                    bindStats(view, state.ride.durationMs, state.routeStatistics)
                 }
             }
-
-            gpsQualityFootnote.text = getString(
-                R.string.ride_stat_gps_quality_value,
-                state.routeStatistics.acceptedPointCount, state.routeStatistics.totalPointCount,
-                state.routeStatistics.averageAccuracyMeters.roundToInt()
-            )
-
-            bindStats(view, state.ride?.durationMs ?: 0L, state.routeStatistics)
         }
 
         return view

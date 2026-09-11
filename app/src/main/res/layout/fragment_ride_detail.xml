@@ -168,4 +168,26 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Groups the "a real ride is loaded" content so RideDetailFragment can hide all of it at
+         once for UiState.NotFound - deliberately excludes map_zoom_controls, which has its own
+         independent isMapSupported() visibility that this must not clobber. -->
+    <androidx.constraintlayout.widget.Group
+        android:id="@+id/ride_found_content_group"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:constraint_referenced_ids="ride_detail_date,stat_column_start,stat_column_end,gps_quality_footnote" />
+
+    <TextView
+        android:id="@+id/ride_not_found_message"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/ride_detail_not_found"
+        android:textSize="16sp"
+        android:textColor="@color/ride_text_secondary"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
