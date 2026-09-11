@@ -17,6 +17,7 @@ import com.andrerinas.openheadunit.main.MainActivity
 import com.andrerinas.openheadunit.ride.RideComponent
 import com.andrerinas.openheadunit.ride.data.RideRepository
 import com.andrerinas.openheadunit.ride.domain.RideEvent
+import com.andrerinas.openheadunit.ride.domain.RideLiveState
 import com.andrerinas.openheadunit.ride.domain.RideMetrics
 import com.andrerinas.openheadunit.ride.domain.RidePoint
 import com.andrerinas.openheadunit.ride.domain.RidePointQualityPolicy
@@ -29,6 +30,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -107,6 +111,7 @@ class RideTrackingService : Service() {
         locationEngine.stop()
         scope.cancel()
         isRunning = false
+        _liveState.value = null
         super.onDestroy()
     }
 
@@ -125,6 +130,7 @@ class RideTrackingService : Service() {
         runningDistanceMeters = 0.0
         previousAccepted = null
         firstAcceptedTimestampMs = null
+        _liveState.value = RideLiveState(newRideId, runningDistanceMeters, lastAcceptedAccuracyMeters = null)
         locationEngine.start(RideLocationEngine.Listener { point -> onRidePoint(point) })
         AppLog.i("RideTrackingService: ride $newRideId started")
     }
@@ -152,6 +158,7 @@ class RideTrackingService : Service() {
         state = result.newState
         rideId = null
         rideStartTimestampMs = null
+        _liveState.value = null
         stopForeground(true)
         stopSelf()
     }
@@ -175,6 +182,9 @@ class RideTrackingService : Service() {
         runningDistanceMeters = RideMetrics.totalDistanceMeters(existingAccepted)
         previousAccepted = existingAccepted.lastOrNull()
         firstAcceptedTimestampMs = existingAccepted.firstOrNull()?.timestampMs
+        _liveState.value = RideLiveState(
+            active.id, runningDistanceMeters, previousAccepted?.accuracyMeters
+        )
         locationEngine.start(RideLocationEngine.Listener { point -> onRidePoint(point) })
         AppLog.i("RideTrackingService: recovered active ride ${active.id} after restart")
     }
@@ -196,6 +206,7 @@ class RideTrackingService : Service() {
                 }
                 if (firstAcceptedTimestampMs == null) firstAcceptedTimestampMs = point.timestampMs
                 previousAccepted = point
+                _liveState.value = RideLiveState(id, runningDistanceMeters, point.accuracyMeters)
                 RideRawSample.accepted(point)
             }
 
@@ -257,6 +268,16 @@ class RideTrackingService : Service() {
         @Volatile
         var isRunning: Boolean = false
             private set
+
+        /**
+         * The service's own in-memory ride progress, published the moment it changes - null
+         * whenever no ride is actively being tracked in this process. This is what lets
+         * RideTrackerViewModel show live progress without polling Room for a value the service
+         * already holds; when this is null (service not running), the ViewModel falls back to its
+         * existing DB-based reconciliation/refresh logic instead.
+         */
+        private val _liveState = MutableStateFlow<RideLiveState?>(null)
+        val liveState: StateFlow<RideLiveState?> = _liveState.asStateFlow()
 
         /**
          * Clears a ride-tracking notification left behind by a service instance that never got to

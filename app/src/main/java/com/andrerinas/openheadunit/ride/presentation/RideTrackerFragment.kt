@@ -35,14 +35,12 @@ import java.util.Locale
  * navigating to a second screen, since it's the same instrument reflecting whichever state real
  * data supports.
  *
- * Deliberately NOT shown: a live speed metric, or a "GPS acquiring vs ready vs degraded"
- * distinction with a real accuracy figure. Neither is available yet - RideLocationEngine has no
- * presentation-layer signal for "first fix received" or per-fix accuracy while idle/recording,
- * only what RideTrackingService privately tracks for its own quality filtering. Building that
- * honestly is a phase-2 Ride Engine change, not a UI tweak; faking either here would violate the
- * "no fabricated telemetry" rule this screen is otherwise built around. What IS shown - distance,
- * elapsed time, GPS permission/service state - is all real, either read directly or recomputed
- * from actually-persisted data (see RideTrackerViewModel).
+ * Distance and the GPS accuracy figure shown while recording both come live from
+ * RideTrackingService's own in-memory state (see RideTrackerViewModel), not a placeholder or a
+ * polled recomputation. Deliberately still NOT shown: a live speed metric (needs its own signal
+ * from RideLocationEngine, not wired up yet), or a "GPS acquiring/ready/degraded" verdict - a raw
+ * accuracy number isn't the same claim as a designed readiness/quality model, and inventing one
+ * here would violate the "no fabricated telemetry" rule this screen is otherwise built around.
  */
 class RideTrackerFragment : Fragment() {
 
@@ -80,6 +78,7 @@ class RideTrackerFragment : Fragment() {
     private lateinit var endRideButton: MaterialButton
 
     private var elapsedTickerJob: kotlinx.coroutines.Job? = null
+    private var lastAcceptedAccuracyMeters: Float? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -121,6 +120,10 @@ class RideTrackerFragment : Fragment() {
         viewModel.activeRide.observe(viewLifecycleOwner) { ride -> render(ride) }
         viewModel.distanceMeters.observe(viewLifecycleOwner) { meters ->
             distanceValue.text = getString(R.string.ride_stat_km_value, meters / 1000.0)
+        }
+        viewModel.lastAcceptedAccuracyMeters.observe(viewLifecycleOwner) { accuracy ->
+            lastAcceptedAccuracyMeters = accuracy
+            if (viewModel.activeRide.value != null) updateGpsStatusText()
         }
         viewModel.lastCompletedRide.observe(viewLifecycleOwner) { renderLastRide(it) }
 
@@ -179,12 +182,7 @@ class RideTrackerFragment : Fragment() {
             renderIdleReadiness()
         }
 
-        val gpsText = when {
-            !hasLocationPermission() -> getString(R.string.ride_gps_status_permission_required)
-            !isLocationServiceEnabled() -> getString(R.string.ride_gps_status_location_disabled)
-            else -> getString(R.string.ride_gps_status_available)
-        }
-        gpsStatusText.text = gpsText
+        updateGpsStatusText()
 
         RideInstrumentStyler.style(
             root = rootView,
@@ -201,6 +199,20 @@ class RideTrackerFragment : Fragment() {
             routinePanelButtons = if (isRiding) listOf(endRideButton) else emptyList(),
             extraSurfaces = listOfNotNull(toolbar.parent as? View)
         )
+    }
+
+    /** While riding and a fix has actually been accepted, appends its real accuracy - honest
+     *  because it's the same figure RideTrackingService itself just accepted the point on, not an
+     *  invented "GPS lock" claim (see this class's KDoc). */
+    private fun updateGpsStatusText() {
+        val isRiding = viewModel.activeRide.value != null
+        val accuracy = lastAcceptedAccuracyMeters
+        gpsStatusText.text = when {
+            !hasLocationPermission() -> getString(R.string.ride_gps_status_permission_required)
+            !isLocationServiceEnabled() -> getString(R.string.ride_gps_status_location_disabled)
+            isRiding && accuracy != null -> getString(R.string.ride_gps_status_with_accuracy, accuracy)
+            else -> getString(R.string.ride_gps_status_available)
+        }
     }
 
     private fun renderIdleReadiness() {
@@ -238,19 +250,17 @@ class RideTrackerFragment : Fragment() {
     }
 
     /** Ticks every second while riding: elapsed time client-side from the ride's real recorded
-     *  start timestamp (cheap, no I/O), distance re-read from Room every 5th tick (throttled -
-     *  see RideTrackerViewModel.refreshLiveDistance). Cancelled/restarted automatically with the
-     *  Fragment's STARTED state via repeatOnLifecycle, so it doesn't tick while backgrounded. */
+     *  start timestamp (cheap, no I/O) - distance and GPS accuracy update independently, live,
+     *  via RideTrackerViewModel's collection of RideTrackingService.liveState, not from this
+     *  ticker. Cancelled/restarted automatically with the Fragment's STARTED state via
+     *  repeatOnLifecycle, so it doesn't tick while backgrounded. */
     private fun startElapsedTicker(ride: Ride) {
         stopElapsedTicker()
         elapsedTickerJob = viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                var tick = 0
                 while (true) {
                     val elapsedMs = System.currentTimeMillis() - ride.startTimestampMs
                     elapsedValue.text = formatElapsed(elapsedMs)
-                    if (tick % 5 == 0) viewModel.refreshLiveDistance(ride.id)
-                    tick++
                     delay(1000)
                 }
             }

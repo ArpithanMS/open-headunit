@@ -14,15 +14,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Deliberately not bound to [RideTrackingService]: [com.andrerinas.openheadunit.ride.data.RideRepository]
- * is the reuse seam the whole Ride Engine is built around, so this just asks it who the active
- * ride is - the same way any other future consumer (a HUD, a custom launcher) will.
+ * [com.andrerinas.openheadunit.ride.data.RideRepository] is the reuse seam the whole Ride Engine
+ * is built around, so [activeRide]/[lastCompletedRide] ask it who the active ride is - the same
+ * way any other future consumer (a HUD, a custom launcher) will. [distanceMeters] and
+ * [lastAcceptedAccuracyMeters], though, come straight from [RideTrackingService.liveState] while
+ * it's running: the service already holds this in memory (Room only gets it in flushed batches -
+ * see the service's own KDoc), so polling the database for a value the service already has would
+ * just add latency. When the service isn't running, [reconcileIfStale] is what keeps [activeRide]
+ * honest instead.
  *
- * What this deliberately does NOT expose yet: current speed, or a live GPS acquiring/ready/
- * degraded distinction. Both need a live signal from RideLocationEngine that isn't wired up to
- * any presentation layer today - see RideTrackerFragment's class doc. [distanceMeters] is real,
- * live-recomputed distance (not the DB's own Ride.distanceMeters column, which the tracking
- * service only writes once at finish - see [refreshLiveDistance]), not a placeholder.
+ * What this deliberately does NOT expose yet: a live GPS acquiring/ready/degraded distinction -
+ * see RideTrackerFragment's class doc on why that needs more than a raw accuracy number.
  */
 class RideTrackerViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -34,6 +36,9 @@ class RideTrackerViewModel(application: Application) : AndroidViewModel(applicat
     private val _distanceMeters = MutableLiveData(0.0)
     val distanceMeters: LiveData<Double> = _distanceMeters
 
+    private val _lastAcceptedAccuracyMeters = MutableLiveData<Float?>(null)
+    val lastAcceptedAccuracyMeters: LiveData<Float?> = _lastAcceptedAccuracyMeters
+
     private val _lastCompletedRide = MutableLiveData<Ride?>()
     val lastCompletedRide: LiveData<Ride?> = _lastCompletedRide
 
@@ -42,6 +47,18 @@ class RideTrackerViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             repository.observeRideHistory().collect { rides ->
                 _lastCompletedRide.value = rides.firstOrNull()
+            }
+        }
+        viewModelScope.launch {
+            RideTrackingService.liveState.collect { state ->
+                // A null emission means the service stopped tracking (a normal Stop, already
+                // handled explicitly in stopRide() below, or the service dying unexpectedly) -
+                // freeze whatever was last shown rather than snapping to 0/null, since that would
+                // claim data was lost when it may just be pending reconciliation (see refresh()).
+                if (state != null) {
+                    _distanceMeters.value = state.runningDistanceMeters
+                    _lastAcceptedAccuracyMeters.value = state.lastAcceptedAccuracyMeters
+                }
             }
         }
     }
@@ -85,20 +102,6 @@ class RideTrackerViewModel(application: Application) : AndroidViewModel(applicat
         return true
     }
 
-    /**
-     * Recomputes distance from this ride's actually-accepted raw samples, the same way
-     * RideTrackingService.recoverActiveRideIfAny() does - the DB's Ride.distanceMeters column
-     * itself is only written once, at finishRide(), so it reads 0 for the whole active ride
-     * otherwise. Call periodically while riding (see RideTrackerFragment's ticker); a Room read
-     * every second would be wasteful, so this is intentionally caller-paced, not automatic.
-     */
-    fun refreshLiveDistance(rideId: Long) {
-        viewModelScope.launch {
-            val accepted = repository.rawSamplesForRide(rideId).filter { it.accepted }.map { it.point }
-            _distanceMeters.value = RideMetrics.totalDistanceMeters(accepted)
-        }
-    }
-
     fun startRide() {
         val context = getApplication<Application>()
         ContextCompat.startForegroundService(context, RideTrackingService.startRideIntent(context))
@@ -109,6 +112,7 @@ class RideTrackerViewModel(application: Application) : AndroidViewModel(applicat
         val context = getApplication<Application>()
         ContextCompat.startForegroundService(context, RideTrackingService.stopRideIntent(context))
         _distanceMeters.value = 0.0
+        _lastAcceptedAccuracyMeters.value = null
         refreshAfterDelay()
     }
 

@@ -1187,6 +1187,7 @@
     <!-- Deliberately NOT "GPS ready"/"Locked": the app only knows permission is granted and the
          provider is enabled here, not that a valid fix exists - see RideTrackerFragment. -->
     <string name="ride_gps_status_available">Location services available</string>
+    <string name="ride_gps_status_with_accuracy">Location services available (±%1$.0fm)</string>
     <string name="ride_gps_status_permission_required">Location permission required</string>
     <string name="ride_gps_status_location_disabled">Location services are off</string>
     <string name="ride_elapsed_format">%1$02d:%2$02d:%3$02d</string>
