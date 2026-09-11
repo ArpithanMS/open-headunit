@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.andrerinas.openheadunit.ride.RideComponent
 import com.andrerinas.openheadunit.ride.domain.Ride
 import com.andrerinas.openheadunit.ride.domain.RidePoint
+import com.andrerinas.openheadunit.ride.domain.RouteSpeedSegment
+import com.andrerinas.openheadunit.ride.domain.RouteSpeedSegmenter
 import com.andrerinas.openheadunit.ride.domain.RouteStatistics
 import com.andrerinas.openheadunit.ride.domain.RouteStatisticsCalculator
 import kotlinx.coroutines.launch
@@ -25,6 +27,7 @@ class RideDetailViewModel(application: Application, private val rideId: Long) : 
         val ride: Ride?,
         val routeStatistics: RouteStatistics,
         val acceptedRoutePoints: List<RidePoint>,
+        val speedSegments: List<RouteSpeedSegment>,
     )
 
     private val _uiState = MutableLiveData<UiState?>()
@@ -34,10 +37,12 @@ class RideDetailViewModel(application: Application, private val rideId: Long) : 
         viewModelScope.launch {
             val ride = repository.rideById(rideId)
             val samples = repository.rawSamplesForRide(rideId)
+            val acceptedPoints = samples.filter { it.accepted }.map { it.point }
             _uiState.value = UiState(
                 ride = ride,
                 routeStatistics = RouteStatisticsCalculator.compute(samples),
-                acceptedRoutePoints = samples.filter { it.accepted }.map { it.point },
+                acceptedRoutePoints = acceptedPoints,
+                speedSegments = RouteSpeedSegmenter.segment(acceptedPoints),
             )
         }
     }

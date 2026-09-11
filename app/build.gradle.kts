@@ -290,12 +290,12 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
-}
 
-// MapLibre spike (verified buildable: 11.0.0 is pinned, not latest, because 11.5.0+ bumps its
-// own kotlin-stdlib to 2.0.20 vs this project's 1.9.22, and androidx.fragment to 1.8.2 vs this
-// project's pinned 1.6.2). Deliberately NOT added as a dependency here: RouteGeometryView still
-// draws pure Canvas geometry, so this library has no caller yet. Re-add it in the same dedicated
-// milestone that actually builds real map tile rendering (MapView, tile source, lifecycle,
-// offline behavior) - not before, so it never sits in the APK as dead weight with a
-// tools:overrideLibrary manifest override masking an unused minSdk conflict.
+    // MapLibre for Ride Detail's route map (real basemap tiles, speed-colored route line).
+    // Pinned to 11.0.0, not latest: 11.5.0+ bumps its own kotlin-stdlib to 2.0.20 vs this
+    // project's 1.9.22, and androidx.fragment to 1.8.2 vs this project's pinned 1.6.2 - see the
+    // now-resolved MapLibre spike this pin came from. Needs minSdk 21 (below this project's
+    // github-flavor minSdk 16), hence the org.maplibre.android tools:overrideLibrary entry in
+    // AndroidManifest.xml.
+    implementation("org.maplibre.gl:android-sdk:11.0.0")
+}

@@ -1203,6 +1203,10 @@
     <string name="ride_stat_max_speed">Max speed</string>
     <string name="ride_stat_gps_quality">GPS quality</string>
     <string name="ride_stat_gps_quality_value">%1$d/%2$d points used, avg accuracy %3$dm</string>
+    <string name="ride_map_zoom_in">+</string>
+    <string name="ride_map_zoom_in_description">Zoom in</string>
+    <string name="ride_map_zoom_out">−</string>
+    <string name="ride_map_zoom_out_description">Zoom out</string>
     <string name="ride_stat_km_value">%1$.2f km</string>
     <string name="ride_stat_kmh_value">%1$.0f km/h</string>
     <string name="ride_stat_duration_hours_minutes">%1$dh %2$dm</string>

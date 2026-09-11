@@ -66,4 +66,17 @@
     <!-- Recording failure / unrecoverable error only - ending a ride normally is not an error. -->
     <color name="ride_accent_error">#E05263</color>
 
+    <!-- Route speed-gradient legend (Ride Detail map only) - a data-viz scale, not a UI accent
+         role: never reuse these for chrome/state, and never reuse ride_accent_error/_warning/
+         _recording for this gradient either, so each role keeps exactly one meaning. Six-stop
+         scale ranked against THIS ride's own speed distribution (percentiles, not raw km/h -
+         see RideDetailFragment's computeSpeedBreakpoints), so it reads the same whether the ride
+         was a stop-and-go city crawl or a highway run. Slowest ~15% through fastest ~5%. -->
+    <color name="ride_speed_slowest">#E5534A</color>
+    <color name="ride_speed_below_average">#E88B3D</color>
+    <color name="ride_speed_average">#E5D23D</color>
+    <color name="ride_speed_above_average">#57C97A</color>
+    <color name="ride_speed_fast">#45C7D8</color>
+    <color name="ride_speed_fastest">#B15AE0</color>
+
 </resources>

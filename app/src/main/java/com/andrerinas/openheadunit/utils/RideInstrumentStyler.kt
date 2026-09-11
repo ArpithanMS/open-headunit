@@ -58,7 +58,7 @@ object RideInstrumentStyler {
 
     /**
      * Text-only restyle, no root background - for views that float transparently over another
-     * view's own background (e.g. Ride Detail's stat rows, floating over RouteGeometryView)
+     * view's own background (e.g. Ride Detail's stat rows and date, floating over its MapView)
      * where painting a root background here would wrongly cover what's behind them.
      */
     fun applyTextOnly(primary: TextView, secondary: TextView) =
