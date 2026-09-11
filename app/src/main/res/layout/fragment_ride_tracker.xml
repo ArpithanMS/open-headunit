@@ -27,7 +27,8 @@
             app:title="@string/ride_tracker_title"
             app:titleTextColor="@color/ride_text_primary"
             app:navigationIcon="@drawable/ic_arrow_back_white"
-            app:navigationIconTint="@color/ride_text_primary" />
+            app:navigationIconTint="@color/ride_text_primary"
+            app:navigationContentDescription="@string/back" />
 
         <LinearLayout
             android:id="@+id/recording_indicator_row"
@@ -144,9 +145,12 @@
                     android:id="@+id/history_link"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:minWidth="48dp"
+                    android:minHeight="48dp"
+                    android:gravity="center"
                     android:text="@string/ride_history_link"
                     android:textSize="15sp"
-                    android:padding="4dp"
+                    android:paddingHorizontal="12dp"
                     android:background="?android:attr/selectableItemBackground"
                     android:clickable="true"
                     android:focusable="true" />

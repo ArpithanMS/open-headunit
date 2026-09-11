@@ -40,13 +40,20 @@ class RideHistoryAdapter(private val onRideClicked: (Ride) -> Unit) :
             DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault())
 
         fun bind(ride: Ride) {
-            dateText.text = dateFormat.format(Date(ride.startTimestampMs))
+            val dateLabel = dateFormat.format(Date(ride.startTimestampMs))
+            dateText.text = dateLabel
             val distanceKm = ride.distanceMeters / 1000.0
             val durationMinutes = (ride.durationMs / 60000.0).roundToInt()
             summaryText.text = itemView.context.getString(
                 R.string.ride_history_item_summary, distanceKm, durationMinutes
             )
             itemView.setOnClickListener { onRideClicked(ride) }
+            itemView.isFocusable = true
+            // One clean spoken sentence instead of TalkBack's default child-concatenation
+            // fallback (which reads the two TextViews' raw text back to back, punctuation and all).
+            itemView.contentDescription = itemView.context.getString(
+                R.string.ride_history_item_description, dateLabel, distanceKm, durationMinutes
+            )
 
             RideInstrumentStyler.applyTextOnly(primary = dateText, secondary = summaryText)
             itemView.setBackgroundResource(R.drawable.bg_ride_panel_selector)

@@ -1195,6 +1195,7 @@
     <string name="ride_history_title">Ride History</string>
     <string name="ride_history_empty">No rides recorded yet</string>
     <string name="ride_history_item_summary">%1$.1f km · %2$d min</string>
+    <string name="ride_history_item_description">Ride on %1$s, %2$.1f kilometres, %3$d minutes</string>
     <string name="ride_detail_title">Ride Detail</string>
     <string name="ride_detail_not_found">Ride not found</string>
     <string name="ride_stat_distance">Distance</string>

@@ -20,7 +20,8 @@
             app:title="@string/ride_history_title"
             app:navigationIcon="@drawable/ic_arrow_back_white"
             app:titleTextColor="?android:attr/textColorPrimary"
-            app:navigationIconTint="?android:attr/textColorPrimary" />
+            app:navigationIconTint="?android:attr/textColorPrimary"
+            app:navigationContentDescription="@string/back" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
