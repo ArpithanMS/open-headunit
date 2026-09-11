@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Included twice (Home, Work) by fragment_saved_places.xml - child ids are looked up scoped to
+     each include's root, the same pattern stat_overlay_item already uses for its two instances. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingVertical="16dp">
+
+    <TextView
+        android:id="@+id/place_label"
+        style="@style/RideSectionLabel" />
+
+    <TextView
+        android:id="@+id/place_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="15sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/place_latitude"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="@string/ride_saved_place_latitude_hint"
+            android:textColor="@color/ride_text_primary"
+            android:textColorHint="@color/ride_text_tertiary"
+            android:inputType="numberDecimal|numberSigned"
+            android:minHeight="48dp" />
+
+        <EditText
+            android:id="@+id/place_longitude"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:hint="@string/ride_saved_place_longitude_hint"
+            android:textColor="@color/ride_text_primary"
+            android:textColorHint="@color/ride_text_tertiary"
+            android:inputType="numberDecimal|numberSigned"
+            android:minHeight="48dp" />
+
+    </LinearLayout>
+
+    <EditText
+        android:id="@+id/place_radius"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/ride_saved_place_radius_hint"
+        android:textColor="@color/ride_text_primary"
+        android:textColorHint="@color/ride_text_tertiary"
+        android:inputType="number"
+        android:minHeight="48dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/place_use_location_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:minHeight="48dp"
+        android:text="@string/ride_saved_place_use_current_location"
+        android:textAllCaps="false"
+        app:cornerRadius="4dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/place_save_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:minHeight="48dp"
+            android:text="@string/ride_saved_place_save"
+            android:textAllCaps="false"
+            app:cornerRadius="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/place_clear_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:minHeight="48dp"
+            android:text="@string/ride_saved_place_clear"
+            android:textAllCaps="false"
+            app:cornerRadius="4dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

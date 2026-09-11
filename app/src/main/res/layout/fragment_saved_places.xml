@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:minHeight="48dp"
+        app:title="@string/ride_saved_places_title"
+        app:titleTextColor="@color/ride_text_primary"
+        app:navigationIcon="@drawable/ic_arrow_back_white"
+        app:navigationIconTint="@color/ride_text_primary"
+        app:navigationContentDescription="@string/back" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingBottom="24dp">
+
+            <TextView
+                android:id="@+id/saved_places_description"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/ride_saved_places_description"
+                android:textSize="14sp" />
+
+            <include layout="@layout/saved_place_editor" android:id="@+id/home_place_editor" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/ride_structural_divider" />
+
+            <include layout="@layout/saved_place_editor" android:id="@+id/work_place_editor" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>
