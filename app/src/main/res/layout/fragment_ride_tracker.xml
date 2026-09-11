@@ -1,62 +1,221 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Two content groups (idle_content / recording_content) share the screen; RideTrackerFragment
+    toggles their visibility on ride state rather than swapping fragments/screens, since it's the
+    same "instrument" reflecting whichever state is real.
+
+    Deliberately NOT shown yet: a live speed metric, or a GPS accuracy figure. Neither is
+    available from RideTrackerViewModel today (see its class doc) - showing them would mean
+    faking data, which the design brief explicitly rules out. They arrive in the phase-2 pass
+    that adds a live presentation state from the Ride Engine.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="?attr/colorSurface">
+    android:orientation="vertical">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:elevation="0dp"
-        android:background="?attr/colorSurface">
+        app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             app:title="@string/ride_tracker_title"
+            app:titleTextColor="@color/ride_text_primary"
             app:navigationIcon="@drawable/ic_arrow_back_white"
-            app:titleTextColor="?android:attr/textColorPrimary"
-            app:navigationIconTint="?android:attr/textColorPrimary" />
+            app:navigationIconTint="@color/ride_text_primary" />
+
+        <LinearLayout
+            android:id="@+id/recording_indicator_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical|end"
+            android:paddingHorizontal="20dp"
+            android:paddingBottom="12dp"
+            android:visibility="gone">
+
+            <View
+                android:layout_width="10dp"
+                android:layout_height="10dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/shape_recording_dot" />
+
+            <TextView
+                android:id="@+id/recording_indicator_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/ride_recording_indicator"
+                android:textColor="@color/ride_accent_recording"
+                android:textSize="13sp"
+                android:letterSpacing="0.05"
+                android:textStyle="bold" />
+
+        </LinearLayout>
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="24dp">
+        android:layout_weight="1">
 
-        <TextView
-            android:id="@+id/ride_status_text"
-            android:layout_width="wrap_content"
+        <!-- ScrollView allows exactly one direct child - idle_content and recording_content are
+             siblings inside this single wrapper, toggled by RideTrackerFragment. -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/ride_status_idle"
-            android:textSize="20sp"
-            android:textColor="?android:attr/textColorPrimary"
-            android:gravity="center" />
+            android:orientation="vertical">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/start_stop_button"
-            android:layout_width="wrap_content"
+        <!-- ═══ Idle: readiness, Start Ride, last-ride context ═══ -->
+        <LinearLayout
+            android:id="@+id/idle_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:paddingStart="32dp"
-            android:paddingEnd="32dp"
-            android:text="@string/ride_action_start" />
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="32dp"
+            android:paddingBottom="24dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/ride_history_button"
-            android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/location_label"
+                style="@style/RideSectionLabel"
+                android:text="@string/ride_section_location" />
+
+            <TextView
+                android:id="@+id/location_status_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/ready_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="@string/ride_ready_to_record"
+                android:textSize="14sp"
+                android:letterSpacing="0.03"
+                android:visibility="gone" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/start_stop_button"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:layout_marginTop="16dp"
+                android:textSize="18sp"
+                android:textAllCaps="false"
+                app:cornerRadius="4dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="32dp"
+                android:layout_marginBottom="20dp"
+                android:background="@color/ride_structural_divider" />
+
+            <TextView
+                android:id="@+id/last_ride_label"
+                style="@style/RideSectionLabel"
+                android:text="@string/ride_section_last_ride"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/last_ride_summary"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="15sp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/history_link"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ride_history_link"
+                    android:textSize="15sp"
+                    android:padding="4dp"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- ═══ Recording: distance/elapsed, GPS, End Ride ═══ -->
+        <LinearLayout
+            android:id="@+id/recording_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:backgroundTint="@android:color/transparent"
-            android:textColor="?android:attr/textColorPrimary"
-            android:text="@string/ride_history_title" />
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="24dp"
+            android:visibility="gone">
 
-    </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <include layout="@layout/stat_overlay_item" android:id="@+id/stat_distance"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+
+                <include layout="@layout/stat_overlay_item" android:id="@+id/stat_elapsed"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/gps_label"
+                style="@style/RideSectionLabel"
+                android:layout_marginTop="20dp"
+                android:text="@string/ride_section_gps" />
+
+            <TextView
+                android:id="@+id/gps_status_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="15sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="20dp"
+                android:background="@color/ride_structural_divider" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/end_ride_button"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:text="@string/ride_action_end"
+                android:textSize="18sp"
+                android:textAllCaps="false"
+                app:cornerRadius="4dp" />
+
+        </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
+
 </LinearLayout>

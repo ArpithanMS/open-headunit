@@ -2,12 +2,13 @@ package com.andrerinas.openheadunit.ride.presentation
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
+import androidx.core.content.ContextCompat
+import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.ride.domain.RidePoint
 import kotlin.math.cos
 import kotlin.math.max
@@ -30,25 +31,28 @@ class RouteGeometryView @JvmOverloads constructor(
 
     private var points: List<RidePoint> = emptyList()
 
+    // Route = the GPS/route accent (design spec color table); lime is reserved for active
+    // recording and Start Ride, not a historical route's markers, so start/end are neutral -
+    // "a restrained start marker; a neutral end marker" - not semantic-accent colored.
     private val routePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(4f)
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
-        color = Color.parseColor("#2196F3")
+        color = ContextCompat.getColor(context, R.color.ride_accent_gps)
     }
     private val startPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.parseColor("#4CAF50")
+        color = ContextCompat.getColor(context, R.color.ride_text_primary)
     }
     private val endPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.parseColor("#F44336")
+        color = ContextCompat.getColor(context, R.color.ride_text_tertiary)
     }
     private val markerStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(2f)
-        color = Color.WHITE
+        color = ContextCompat.getColor(context, R.color.ride_canvas)
     }
 
     private val padding = dp(24f)

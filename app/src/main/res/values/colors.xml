@@ -40,4 +40,30 @@
     <color name="warning_banner_stroke">#66F57C00</color>
     <color name="warning_banner_icon">#F57C00</color>
 
+    <!-- Ride Tracker's "Dark Precision Instrumentation" theme - scoped to Ride Tracker/History/
+         Detail only (see RideInstrumentStyler), not a selectable app-wide theme. Restrained dark
+         instrument palette: lime is reserved for recording state and Start Ride only, never a
+         decorative border on routine panels/rows. -->
+    <color name="ride_canvas">#080A0D</color>
+    <color name="ride_primary_surface">#10141A</color>
+    <color name="ride_raised_surface">#181E26</color>
+    <color name="ride_structural_divider">#2A323D</color>
+    <!-- Translucent contrast-protection scrim for text/chrome floating over the route view. -->
+    <color name="ride_scrim">#CC10141A</color>
+
+    <color name="ride_text_primary">#F1F3F4</color>
+    <color name="ride_text_secondary">#A8B0BA</color>
+    <color name="ride_text_tertiary">#737D89</color>
+
+    <!-- Recording / primary action only - not a decoration color. -->
+    <color name="ride_accent_recording">#B7E632</color>
+    <color name="ride_accent_recording_dim">#33B7E632</color>
+    <color name="ride_accent_recording_bright">#99B7E632</color>
+    <!-- GPS / route. -->
+    <color name="ride_accent_gps">#45C7D8</color>
+    <!-- Degraded GPS / attention needed. -->
+    <color name="ride_accent_warning">#E7A83A</color>
+    <!-- Recording failure / unrecoverable error only - ending a ride normally is not an error. -->
+    <color name="ride_accent_error">#E05263</color>
+
 </resources>

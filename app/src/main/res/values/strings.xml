@@ -1171,10 +1171,27 @@
     <string name="ride_tracking_notification_title">Recording ride</string>
     <string name="ride_tracking_notification_text">Tracking your ride in the background</string>
     <string name="ride_tracker_title">Ride Tracker</string>
-    <string name="ride_status_idle">Not riding</string>
-    <string name="ride_status_riding">Riding — %1$s km so far</string>
+    <string name="ride_status_permission_required">Location permission required</string>
+    <string name="ride_status_location_disabled">Turn on location services</string>
     <string name="ride_action_start">Start Ride</string>
-    <string name="ride_action_stop">Stop Ride</string>
+    <string name="ride_action_end">End Ride</string>
+    <string name="ride_stop_confirm_title">End ride?</string>
+    <string name="ride_stop_confirm_message">This ends recording and saves the ride so far.</string>
+    <string name="ride_recording_indicator">RECORDING</string>
+    <string name="ride_section_location">Location</string>
+    <string name="ride_section_last_ride">Last ride</string>
+    <string name="ride_section_gps">GPS</string>
+    <string name="ride_ready_to_record">Ready to record</string>
+    <string name="ride_history_link">History →</string>
+    <string name="ride_last_ride_summary">%1$.1f km · %2$d min · %3$s</string>
+    <!-- Deliberately NOT "GPS ready"/"Locked": the app only knows permission is granted and the
+         provider is enabled here, not that a valid fix exists - see RideTrackerFragment. -->
+    <string name="ride_gps_status_available">Location services available</string>
+    <string name="ride_gps_status_permission_required">Location permission required</string>
+    <string name="ride_gps_status_location_disabled">Location services are off</string>
+    <string name="ride_elapsed_format">%1$02d:%2$02d:%3$02d</string>
+    <string name="ride_stat_distance_label">Distance</string>
+    <string name="ride_stat_elapsed_label">Elapsed</string>
     <string name="ride_history_title">Ride History</string>
     <string name="ride_history_empty">No rides recorded yet</string>
     <string name="ride_history_item_summary">%1$.1f km · %2$d min</string>

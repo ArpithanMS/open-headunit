@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.core.os.bundleOf
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.ride.RideComponent
+import com.andrerinas.openheadunit.utils.RideInstrumentStyler
 import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.launch
 
@@ -28,7 +29,8 @@ class RideHistoryFragment : Fragment() {
     ): View {
         val view = inflater.inflate(R.layout.fragment_ride_history, container, false)
 
-        view.findViewById<MaterialToolbar>(R.id.toolbar).setNavigationOnClickListener {
+        val toolbar = view.findViewById<MaterialToolbar>(R.id.toolbar)
+        toolbar.setNavigationOnClickListener {
             findNavController().navigateUp()
         }
 
@@ -42,6 +44,12 @@ class RideHistoryFragment : Fragment() {
         }
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
+
+        RideInstrumentStyler.style(
+            root = view,
+            secondaryTexts = listOf(emptyText),
+            extraSurfaces = listOfNotNull(toolbar.parent as? View)
+        )
 
         val repository = RideComponent.get(requireContext()).repository
         viewLifecycleOwner.lifecycleScope.launch {

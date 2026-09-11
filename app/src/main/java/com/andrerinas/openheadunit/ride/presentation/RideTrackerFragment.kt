@@ -1,7 +1,9 @@
 package com.andrerinas.openheadunit.ride.presentation
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -11,14 +13,37 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.ride.domain.Ride
+import com.andrerinas.openheadunit.utils.RideInstrumentStyler
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.util.Date
 import java.util.Locale
 
-/** MVP screen: manual Start/Stop plus a link to ride history. See RideTrackerViewModel. */
+/**
+ * Ride Tracker's idle/recording instrument. Two content groups (idle_content/recording_content
+ * in fragment_ride_tracker.xml) share the screen; this toggles which is visible rather than
+ * navigating to a second screen, since it's the same instrument reflecting whichever state real
+ * data supports.
+ *
+ * Deliberately NOT shown: a live speed metric, or a "GPS acquiring vs ready vs degraded"
+ * distinction with a real accuracy figure. Neither is available yet - RideLocationEngine has no
+ * presentation-layer signal for "first fix received" or per-fix accuracy while idle/recording,
+ * only what RideTrackingService privately tracks for its own quality filtering. Building that
+ * honestly is a phase-2 Ride Engine change, not a UI tweak; faking either here would violate the
+ * "no fabricated telemetry" rule this screen is otherwise built around. What IS shown - distance,
+ * elapsed time, GPS permission/service state - is all real, either read directly or recomputed
+ * from actually-persisted data (see RideTrackerViewModel).
+ */
 class RideTrackerFragment : Fragment() {
 
     private val viewModel: RideTrackerViewModel by viewModels()
@@ -27,10 +52,34 @@ class RideTrackerFragment : Fragment() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) viewModel.startRide()
+        render(viewModel.activeRide.value)
     }
 
-    private lateinit var statusText: TextView
+    private lateinit var rootView: View
+    private lateinit var toolbar: MaterialToolbar
+    private lateinit var recordingIndicatorRow: View
+
+    // Idle content
+    private lateinit var idleContent: View
+    private lateinit var locationLabel: TextView
+    private lateinit var locationStatusText: TextView
+    private lateinit var readyLabel: TextView
     private lateinit var startStopButton: MaterialButton
+    private lateinit var lastRideLabel: TextView
+    private lateinit var lastRideSummary: TextView
+    private lateinit var historyLink: TextView
+
+    // Recording content
+    private lateinit var recordingContent: View
+    private lateinit var distanceLabel: TextView
+    private lateinit var distanceValue: TextView
+    private lateinit var elapsedLabel: TextView
+    private lateinit var elapsedValue: TextView
+    private lateinit var gpsLabel: TextView
+    private lateinit var gpsStatusText: TextView
+    private lateinit var endRideButton: MaterialButton
+
+    private var elapsedTickerJob: kotlinx.coroutines.Job? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -38,20 +87,42 @@ class RideTrackerFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         val view = inflater.inflate(R.layout.fragment_ride_tracker, container, false)
+        rootView = view
 
-        view.findViewById<MaterialToolbar>(R.id.toolbar).setNavigationOnClickListener {
-            findNavController().navigateUp()
-        }
+        toolbar = view.findViewById(R.id.toolbar)
+        toolbar.setNavigationOnClickListener { findNavController().navigateUp() }
+        recordingIndicatorRow = view.findViewById(R.id.recording_indicator_row)
 
-        statusText = view.findViewById(R.id.ride_status_text)
+        idleContent = view.findViewById(R.id.idle_content)
+        locationLabel = view.findViewById(R.id.location_label)
+        locationStatusText = view.findViewById(R.id.location_status_text)
+        readyLabel = view.findViewById(R.id.ready_label)
         startStopButton = view.findViewById(R.id.start_stop_button)
         startStopButton.setOnClickListener { onStartStopClicked() }
-
-        view.findViewById<MaterialButton>(R.id.ride_history_button).setOnClickListener {
+        lastRideLabel = view.findViewById(R.id.last_ride_label)
+        lastRideSummary = view.findViewById(R.id.last_ride_summary)
+        historyLink = view.findViewById(R.id.history_link)
+        historyLink.setOnClickListener {
             findNavController().navigate(R.id.action_rideTrackerFragment_to_rideHistoryFragment)
         }
 
+        recordingContent = view.findViewById(R.id.recording_content)
+        distanceLabel = view.findViewById<View>(R.id.stat_distance).findViewById(R.id.stat_label)
+        distanceValue = view.findViewById<View>(R.id.stat_distance).findViewById(R.id.stat_value)
+        distanceLabel.text = getString(R.string.ride_stat_distance_label)
+        elapsedLabel = view.findViewById<View>(R.id.stat_elapsed).findViewById(R.id.stat_label)
+        elapsedValue = view.findViewById<View>(R.id.stat_elapsed).findViewById(R.id.stat_value)
+        elapsedLabel.text = getString(R.string.ride_stat_elapsed_label)
+        gpsLabel = view.findViewById(R.id.gps_label)
+        gpsStatusText = view.findViewById(R.id.gps_status_text)
+        endRideButton = view.findViewById(R.id.end_ride_button)
+        endRideButton.setOnClickListener { onStartStopClicked() }
+
         viewModel.activeRide.observe(viewLifecycleOwner) { ride -> render(ride) }
+        viewModel.distanceMeters.observe(viewLifecycleOwner) { meters ->
+            distanceValue.text = getString(R.string.ride_stat_km_value, meters / 1000.0)
+        }
+        viewModel.lastCompletedRide.observe(viewLifecycleOwner) { renderLastRide(it) }
 
         return view
     }
@@ -59,34 +130,148 @@ class RideTrackerFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         viewModel.refresh()
+        render(viewModel.activeRide.value)
+    }
+
+    private fun hasLocationPermission(): Boolean = ContextCompat.checkSelfPermission(
+        requireContext(), Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
+    private fun isLocationServiceEnabled(): Boolean {
+        val locationManager = requireContext().getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        return locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
     }
 
     private fun onStartStopClicked() {
         if (viewModel.activeRide.value != null) {
-            viewModel.stopRide()
+            // Ending ends recording and saves what's there - not something a stray tap on a
+            // vibrating, mounted phone should be able to do without an extra step.
+            // Deliberately the app's standard DarkAlertDialog, not a Ride-scoped dialog theme:
+            // every other confirmation dialog in the app (Reset to Defaults, GLES prompts, etc.)
+            // already uses it, and building a second dialog theme just for this one confirmation
+            // is exactly the kind of unrelated theme-system scope this pass is meant to avoid.
+            MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
+                .setTitle(R.string.ride_stop_confirm_title)
+                .setMessage(R.string.ride_stop_confirm_message)
+                .setPositiveButton(R.string.ride_action_end) { _, _ -> viewModel.stopRide() }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
             return
         }
-        val hasPermission = ContextCompat.checkSelfPermission(
-            requireContext(), Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        if (hasPermission) {
-            viewModel.startRide()
-        } else {
+        if (!hasLocationPermission()) {
             requestLocationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        } else if (isLocationServiceEnabled()) {
+            viewModel.startRide()
         }
+        // Location services off: Start stays disabled (see render()); nothing to launch.
     }
 
     private fun render(ride: Ride?) {
-        if (ride == null) {
-            statusText.text = getString(R.string.ride_status_idle)
-            startStopButton.text = getString(R.string.ride_action_start)
+        val isRiding = ride != null
+        idleContent.visibility = if (isRiding) View.GONE else View.VISIBLE
+        recordingContent.visibility = if (isRiding) View.VISIBLE else View.GONE
+        recordingIndicatorRow.visibility = if (isRiding) View.VISIBLE else View.GONE
+
+        if (isRiding) {
+            startElapsedTicker(ride!!)
         } else {
-            val distanceKm = ride.distanceMeters / 1000.0
-            statusText.text = getString(
-                R.string.ride_status_riding,
-                String.format(Locale.getDefault(), "%.2f", distanceKm)
-            )
-            startStopButton.text = getString(R.string.ride_action_stop)
+            stopElapsedTicker()
+            renderIdleReadiness()
         }
+
+        val gpsText = when {
+            !hasLocationPermission() -> getString(R.string.ride_gps_status_permission_required)
+            !isLocationServiceEnabled() -> getString(R.string.ride_gps_status_location_disabled)
+            else -> getString(R.string.ride_gps_status_available)
+        }
+        gpsStatusText.text = gpsText
+
+        RideInstrumentStyler.style(
+            root = rootView,
+            primaryTexts = listOfNotNull(
+                locationStatusText.takeIf { !isRiding },
+                distanceValue.takeIf { isRiding },
+                elapsedValue.takeIf { isRiding }
+            ),
+            secondaryTexts = listOfNotNull(
+                readyLabel, lastRideSummary, historyLink, gpsStatusText,
+                distanceLabel.takeIf { isRiding }, elapsedLabel.takeIf { isRiding }
+            ),
+            primaryButtons = if (!isRiding) listOf(startStopButton) else emptyList(),
+            routinePanelButtons = if (isRiding) listOf(endRideButton) else emptyList(),
+            extraSurfaces = listOfNotNull(toolbar.parent as? View)
+        )
+    }
+
+    private fun renderIdleReadiness() {
+        val hasPermission = hasLocationPermission()
+        val locationEnabled = isLocationServiceEnabled()
+        val isReady = hasPermission && locationEnabled
+        locationStatusText.text = when {
+            !hasPermission -> getString(R.string.ride_status_permission_required)
+            !locationEnabled -> getString(R.string.ride_status_location_disabled)
+            else -> getString(R.string.ride_gps_status_available)
+        }
+        readyLabel.visibility = if (isReady) View.VISIBLE else View.GONE
+        startStopButton.text = getString(R.string.ride_action_start)
+        val canTap = !hasPermission || locationEnabled
+        startStopButton.isEnabled = canTap
+        // RideInstrumentStyler sets a plain (non-stateful) background/text color, which bypasses
+        // MaterialButton's own disabled-state dimming - "Disabled controls must remain visually
+        // distinct" (design spec), so dim explicitly rather than let it look identical to enabled.
+        startStopButton.alpha = if (canTap) 1f else 0.4f
+    }
+
+    private fun renderLastRide(lastRide: Ride?) {
+        val hasLastRide = lastRide != null
+        lastRideLabel.visibility = if (hasLastRide) View.VISIBLE else View.GONE
+        lastRideSummary.visibility = if (hasLastRide) View.VISIBLE else View.GONE
+        if (lastRide != null) {
+            val distanceKm = lastRide.distanceMeters / 1000.0
+            val durationMinutes = (lastRide.durationMs / 60000.0).let { Math.round(it) }
+            val date = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault())
+                .format(Date(lastRide.startTimestampMs))
+            lastRideSummary.text = getString(
+                R.string.ride_last_ride_summary, distanceKm, durationMinutes, date
+            )
+        }
+    }
+
+    /** Ticks every second while riding: elapsed time client-side from the ride's real recorded
+     *  start timestamp (cheap, no I/O), distance re-read from Room every 5th tick (throttled -
+     *  see RideTrackerViewModel.refreshLiveDistance). Cancelled/restarted automatically with the
+     *  Fragment's STARTED state via repeatOnLifecycle, so it doesn't tick while backgrounded. */
+    private fun startElapsedTicker(ride: Ride) {
+        stopElapsedTicker()
+        elapsedTickerJob = viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                var tick = 0
+                while (true) {
+                    val elapsedMs = System.currentTimeMillis() - ride.startTimestampMs
+                    elapsedValue.text = formatElapsed(elapsedMs)
+                    if (tick % 5 == 0) viewModel.refreshLiveDistance(ride.id)
+                    tick++
+                    delay(1000)
+                }
+            }
+        }
+    }
+
+    private fun stopElapsedTicker() {
+        elapsedTickerJob?.cancel()
+        elapsedTickerJob = null
+    }
+
+    private fun formatElapsed(elapsedMs: Long): String {
+        val totalSeconds = (elapsedMs / 1000).coerceAtLeast(0)
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return getString(R.string.ride_elapsed_format, hours, minutes, seconds)
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        stopElapsedTicker()
     }
 }

@@ -18,12 +18,15 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Scrim (not transparent): the toolbar sits directly over the route, and a dense route
+         segment or the cyan route line behind the title/back icon would otherwise impair
+         legibility - contrast protection, same reasoning as the stat-row scrims below. -->
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/app_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:elevation="0dp"
-        android:background="@android:color/transparent"
+        android:background="@color/ride_scrim"
         app:layout_constraintTop_toTopOf="parent">
 
         <com.google.android.material.appbar.MaterialToolbar
@@ -33,8 +36,8 @@
             android:background="@android:color/transparent"
             app:title="@string/ride_detail_title"
             app:navigationIcon="@drawable/ic_arrow_back_white"
-            app:titleTextColor="?android:attr/textColorPrimary"
-            app:navigationIconTint="?android:attr/textColorPrimary" />
+            app:titleTextColor="@color/ride_text_primary"
+            app:navigationIconTint="@color/ride_text_primary" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -43,22 +46,25 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp"
+        android:background="@drawable/bg_ride_scrim"
         android:textSize="15sp"
         android:textColor="?android:attr/textColorSecondary"
-        android:shadowColor="@color/text_shadow"
-        android:shadowDx="0"
-        android:shadowDy="1"
-        android:shadowRadius="4"
         app:layout_constraintTop_toBottomOf="@id/app_bar"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginStart="20dp" />
 
-    <!-- Left column: distance, moving time, avg speed. -->
+    <!-- Left column: distance, moving time, avg speed. Scrim background protects contrast
+         against the route drawn behind it (design spec: route text must stay readable for
+         dense and sparse routes alike). -->
     <LinearLayout
         android:id="@+id/stat_column_start"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:background="@drawable/bg_ride_scrim"
+        android:paddingHorizontal="12dp"
         android:layout_marginStart="20dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
@@ -77,6 +83,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:background="@drawable/bg_ride_scrim"
+        android:paddingHorizontal="12dp"
         android:layout_marginEnd="20dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"

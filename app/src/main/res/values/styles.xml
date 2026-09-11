@@ -16,6 +16,20 @@
         <item name="materialAlertDialogTheme">@style/DarkAlertDialog</item>
     </style>
 
+    <!-- Ride Tracker's small-caps section label (LOCATION/DISTANCE/GPS/...). Hardcoded to the
+         ride_* tokens directly (not driven by RideInstrumentStyler at runtime) since it's a
+         fixed style independent of the app's own light/dark theme - Ride Tracker's canvas is
+         always ride_canvas regardless of the global Dark Mode setting. -->
+    <style name="RideSectionLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/ride_text_tertiary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
     <style name="AppTheme.Translucent" parent="android:Theme.Translucent.NoTitleBar" />
 
     <style name="AppTheme.Fullscreen" parent="AppTheme">

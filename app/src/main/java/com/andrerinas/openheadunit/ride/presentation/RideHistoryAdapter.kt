@@ -7,6 +7,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.ride.domain.Ride
+import com.andrerinas.openheadunit.utils.RideInstrumentStyler
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -46,6 +47,9 @@ class RideHistoryAdapter(private val onRideClicked: (Ride) -> Unit) :
                 R.string.ride_history_item_summary, distanceKm, durationMinutes
             )
             itemView.setOnClickListener { onRideClicked(ride) }
+
+            RideInstrumentStyler.applyTextOnly(primary = dateText, secondary = summaryText)
+            itemView.setBackgroundResource(R.drawable.bg_ride_panel_selector)
         }
     }
 }

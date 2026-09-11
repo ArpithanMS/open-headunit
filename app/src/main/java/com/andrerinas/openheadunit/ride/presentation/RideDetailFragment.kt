@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.ride.domain.RouteStatistics
+import com.andrerinas.openheadunit.utils.RideInstrumentStyler
 import com.google.android.material.appbar.MaterialToolbar
 import java.text.DateFormat
 import java.util.Date
@@ -44,6 +45,14 @@ class RideDetailFragment : Fragment() {
 
         val routeView = view.findViewById<RouteGeometryView>(R.id.route_geometry_view)
         val dateText = view.findViewById<TextView>(R.id.ride_detail_date)
+
+        // routeView, not the ConstraintLayout root, is what actually fills the screen (see the
+        // layout's own comment: "the route IS the background") - style it directly rather than
+        // the root, which routeView otherwise fully obscures.
+        RideInstrumentStyler.style(root = routeView, secondaryTexts = listOf(dateText))
+        // app_bar already carries its own fixed scrim in XML (contrast protection over the
+        // route, not theme-driven), so it doesn't need an extraSurfaces entry here the way the
+        // opaque ?attr/colorSurface app bars on Ride Tracker/History do.
 
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
             if (state == null) return@observe
@@ -78,8 +87,14 @@ class RideDetailFragment : Fragment() {
 
     private fun bindStat(root: View, rowId: Int, labelRes: Int, value: String) {
         val row = root.findViewById<View>(rowId)
-        row.findViewById<TextView>(R.id.stat_label).text = getString(labelRes)
-        row.findViewById<TextView>(R.id.stat_value).text = value
+        val label = row.findViewById<TextView>(R.id.stat_label)
+        val statValue = row.findViewById<TextView>(R.id.stat_value)
+        label.text = getString(labelRes)
+        statValue.text = value
+        // Text-only: these rows are transparent, floating directly over the route (see
+        // fragment_ride_detail.xml) - RideInstrumentStyler.style() also paints a root background,
+        // which would wrongly cover the route with an opaque box, so restyle the text directly.
+        RideInstrumentStyler.applyTextOnly(primary = statValue, secondary = label)
     }
 
     private fun formatKm(meters: Double): String =

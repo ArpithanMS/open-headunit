@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ride Tracker's routine panel - primary surface fill, subtle structural-divider border. No
+     accent color here; the recording-lime accent is reserved for the recording state and Start
+     Ride only, not every panel (design spec sections 5/7). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/ride_primary_surface" />
+    <stroke
+        android:width="1dp"
+        android:color="@color/ride_structural_divider" />
+    <corners android:radius="4dp" />
+</shape>

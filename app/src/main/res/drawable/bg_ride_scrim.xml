@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Translucent contrast-protection scrim for text floating over the route view (design spec:
+     "route text remains readable for dense and sparse recorded routes" / "restrained opaque or
+     translucent slate summary region"). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/ride_scrim" />
+    <corners android:radius="4dp" />
+</shape>

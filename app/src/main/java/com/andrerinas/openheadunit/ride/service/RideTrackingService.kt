@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.main.MainActivity
 import com.andrerinas.openheadunit.ride.RideComponent
@@ -67,6 +68,11 @@ class RideTrackingService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onCreate() {
+        super.onCreate()
+        isRunning = true
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -94,6 +100,7 @@ class RideTrackingService : Service() {
     override fun onDestroy() {
         locationEngine.stop()
         scope.cancel()
+        isRunning = false
         super.onDestroy()
     }
 
@@ -229,6 +236,27 @@ class RideTrackingService : Service() {
 
         private const val ACTION_START_RIDE = "com.andrerinas.openheadunit.ride.ACTION_START_RIDE"
         private const val ACTION_STOP_RIDE = "com.andrerinas.openheadunit.ride.ACTION_STOP_RIDE"
+
+        /**
+         * True only while an actual instance of this service is alive in this process - not a
+         * persisted flag, so a fresh process (a normal relaunch, or one following `adb shell am
+         * force-stop`) always starts out false regardless of what the last process left behind.
+         * This is what lets RideTrackerViewModel tell "still recording" apart from "the DB still
+         * says RIDING but nothing is actually collecting points for it" - see
+         * RideTrackerViewModel.reconcileIfStale().
+         */
+        @Volatile
+        var isRunning: Boolean = false
+            private set
+
+        /**
+         * Clears a ride-tracking notification left behind by a service instance that never got to
+         * run its own onDestroy() (e.g. `am force-stop`, or the process being swiped from
+         * Recents) - the notification otherwise outlives the process that posted it.
+         */
+        fun cancelStaleNotification(context: Context) {
+            NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+        }
 
         fun startRideIntent(context: Context): Intent =
             Intent(context, RideTrackingService::class.java).setAction(ACTION_START_RIDE)
