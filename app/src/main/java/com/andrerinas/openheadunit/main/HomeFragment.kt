@@ -48,6 +48,7 @@ import com.andrerinas.openheadunit.connection.usb.UsbReceiver
 import com.andrerinas.openheadunit.connection.usb.UsbAccessoryMode
 import com.andrerinas.openheadunit.connection.wifi.modes.helper.HelperStrategy
 import com.andrerinas.openheadunit.connection.wifi.WifiLauncherMode
+import com.andrerinas.openheadunit.ride.service.RideTrackingService
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 
@@ -81,6 +82,7 @@ class HomeFragment : Fragment() {
     private lateinit var wifi_text_view: TextView
     private lateinit var exitButton: Button
     private lateinit var rideTrackerButton: View
+    private lateinit var rideRecordingPill: View
     private lateinit var self_mode_text: TextView
     private var hasAttemptedAutoConnect = false
     private var hasAttemptedSingleUsbAutoConnect = false
@@ -113,6 +115,7 @@ class HomeFragment : Fragment() {
         exitButton = view.findViewById(R.id.exit_button)
         self_mode_text = view.findViewById(R.id.self_mode_text)
         rideTrackerButton = view.findViewById(R.id.ride_tracker_button)
+        rideRecordingPill = view.findViewById(R.id.ride_recording_pill)
 
         // Portrait layout: cap grid width so square buttons never overflow
         // into the WiFi-pill or Exit-button areas on compact/square devices.
@@ -134,6 +137,17 @@ class HomeFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 AapService.scanningState.collect { updateWifiButtonFeedback(it) }
+            }
+        }
+
+        // Purely informational - reflects RideTrackingService's own live state, never starts or
+        // stops a ride from Home (see the session's "lifecycle integration only" Android Auto
+        // boundary applied one level up: Home observes Ride Tracker, it never controls it).
+        viewLifecycleOwner.lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                RideTrackingService.liveState.collect { state ->
+                    rideRecordingPill.visibility = if (state != null) View.VISIBLE else View.GONE
+                }
             }
         }
 

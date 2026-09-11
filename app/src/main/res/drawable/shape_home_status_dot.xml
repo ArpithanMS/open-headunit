@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home's own accent (brand_teal), not Ride Tracker's ride_accent_recording - this indicator
+     lives on Home, which keeps its own palette (see ride_recording_pill in fragment_home.xml). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/brand_teal" />
+</shape>
