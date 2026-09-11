@@ -22,4 +22,15 @@
         android:textSize="14sp"
         android:textColor="?android:attr/textColorSecondary" />
 
+    <!-- Only shown when RideClassifier finds this ride's start/end near a saved place - omitted
+         entirely (not a placeholder like "Unknown") when there's nothing to say. -->
+    <TextView
+        android:id="@+id/ride_item_classification"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textSize="13sp"
+        android:textColor="?android:attr/textColorSecondary"
+        android:visibility="gone" />
+
 </LinearLayout>

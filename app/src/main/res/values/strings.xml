@@ -1172,6 +1172,11 @@
     <string name="ride_tracking_notification_text">Tracking your ride in the background</string>
     <string name="ride_tracker_title">Ride Tracker</string>
     <string name="ride_recording_home_indicator">RIDE RECORDING</string>
+    <string name="ride_saved_place_home">Home</string>
+    <string name="ride_saved_place_work">Work</string>
+    <string name="ride_classification_both">%1$s → %2$s</string>
+    <string name="ride_classification_from_only">From %1$s</string>
+    <string name="ride_classification_to_only">To %1$s</string>
     <string name="ride_status_permission_required">Location permission required</string>
     <string name="ride_status_location_disabled">Turn on location services</string>
     <string name="ride_action_start">Start Ride</string>

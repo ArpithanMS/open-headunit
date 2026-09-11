@@ -22,6 +22,8 @@ import kotlinx.coroutines.launch
 /** Finished rides, most recent first. See RideRepository.observeRideHistory(). */
 class RideHistoryFragment : Fragment() {
 
+    private lateinit var adapter: RideHistoryAdapter
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -36,7 +38,7 @@ class RideHistoryFragment : Fragment() {
 
         val recyclerView = view.findViewById<RecyclerView>(android.R.id.list)
         val emptyText = view.findViewById<TextView>(R.id.ride_history_empty_text)
-        val adapter = RideHistoryAdapter { ride ->
+        adapter = RideHistoryAdapter { ride ->
             findNavController().navigate(
                 R.id.action_rideHistoryFragment_to_rideDetailFragment,
                 bundleOf(RideDetailFragment.ARG_RIDE_ID to ride.id)
@@ -63,5 +65,15 @@ class RideHistoryFragment : Fragment() {
         }
 
         return view
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // A one-shot read, not a Flow - saved places change far less often than the ride list
+        // itself (see SavedPlaceRepository), and this naturally picks up an edit made from
+        // Settings the moment the user navigates back here.
+        viewLifecycleOwner.lifecycleScope.launch {
+            adapter.updateSavedPlaces(RideComponent.get(requireContext()).savedPlaceRepository.all())
+        }
     }
 }
