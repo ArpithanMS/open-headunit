@@ -21,4 +21,9 @@ data class RideEntity(
     val state: String,
     val distanceMeters: Double,
     val durationMs: Long,
+    /** See [com.andrerinas.openheadunit.ride.domain.Ride]'s KDoc - null until finishRide(). */
+    val startLatitude: Double? = null,
+    val startLongitude: Double? = null,
+    val endLatitude: Double? = null,
+    val endLongitude: Double? = null,
 )

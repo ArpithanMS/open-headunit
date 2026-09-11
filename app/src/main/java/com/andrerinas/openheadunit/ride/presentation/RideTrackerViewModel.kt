@@ -101,7 +101,13 @@ class RideTrackerViewModel(application: Application) : AndroidViewModel(applicat
         val distanceMeters = RideMetrics.totalDistanceMeters(accepted)
         val lastTimestampMs = accepted.lastOrNull()?.timestampMs ?: active.startTimestampMs
         val durationMs = (lastTimestampMs - active.startTimestampMs).coerceAtLeast(0L)
-        repository.finishRide(active.id, lastTimestampMs, distanceMeters, durationMs)
+        val start = accepted.firstOrNull()
+        val end = accepted.lastOrNull()
+        repository.finishRide(
+            active.id, lastTimestampMs, distanceMeters, durationMs,
+            startLatitude = start?.latitude, startLongitude = start?.longitude,
+            endLatitude = end?.latitude, endLongitude = end?.longitude,
+        )
         RideTrackingService.cancelStaleNotification(getApplication())
         return true
     }

@@ -14,6 +14,10 @@ fun RideEntity.toDomain(): Ride = Ride(
     state = RideState.valueOf(state),
     distanceMeters = distanceMeters,
     durationMs = durationMs,
+    startLatitude = startLatitude,
+    startLongitude = startLongitude,
+    endLatitude = endLatitude,
+    endLongitude = endLongitude,
 )
 
 fun RideRawSample.toEntity(rideId: Long): RidePointEntity = RidePointEntity(

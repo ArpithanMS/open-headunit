@@ -68,7 +68,10 @@ class RideTrackingService : Service() {
     /** The last *accepted* fix - what new candidates are evaluated against, and what the running
      * distance is measured from. A rejected fix never becomes this. */
     private var previousAccepted: RidePoint? = null
-    private var firstAcceptedTimestampMs: Long? = null
+    /** The first *accepted* fix of the current ride - together with [previousAccepted] (the
+     *  last), what gets persisted as the ride's start/end position at finishRide() time (see
+     *  [RideClassifier]). Null until a fix is actually accepted; never fabricated. */
+    private var firstAccepted: RidePoint? = null
     /** The ride's own wall-clock start (Start tap, or the recovered Ride row's start after a
      * restart) - what [Ride.durationMs] is measured from. Deliberately NOT first-accepted-fix to
      * last-accepted-fix: that basis silently excludes GPS-acquisition time and would disagree
@@ -129,7 +132,7 @@ class RideTrackingService : Service() {
         sampleBuffer = mutableListOf()
         runningDistanceMeters = 0.0
         previousAccepted = null
-        firstAcceptedTimestampMs = null
+        firstAccepted = null
         _liveState.value = RideLiveState(
             newRideId, runningDistanceMeters,
             lastAcceptedAccuracyMeters = null, lastAcceptedSpeedMetersPerSecond = null,
@@ -152,7 +155,13 @@ class RideTrackingService : Service() {
             val lastMs = previousAccepted?.timestampMs
             val endTimestampMs = lastMs ?: System.currentTimeMillis()
             val durationMs = if (startedAtMs != null) (endTimestampMs - startedAtMs).coerceAtLeast(0L) else 0L
-            repository.finishRide(id, endTimestampMs, runningDistanceMeters, durationMs)
+            val start = firstAccepted
+            val end = previousAccepted
+            repository.finishRide(
+                id, endTimestampMs, runningDistanceMeters, durationMs,
+                startLatitude = start?.latitude, startLongitude = start?.longitude,
+                endLatitude = end?.latitude, endLongitude = end?.longitude,
+            )
             AppLog.i(
                 "RideTrackingService: ride $id finished, " +
                     "distance=${runningDistanceMeters}m duration=${durationMs}ms"
@@ -161,6 +170,8 @@ class RideTrackingService : Service() {
         state = result.newState
         rideId = null
         rideStartTimestampMs = null
+        firstAccepted = null
+        previousAccepted = null
         _liveState.value = null
         stopForeground(true)
         stopSelf()
@@ -184,7 +195,7 @@ class RideTrackingService : Service() {
         sampleBuffer = mutableListOf()
         runningDistanceMeters = RideMetrics.totalDistanceMeters(existingAccepted)
         previousAccepted = existingAccepted.lastOrNull()
-        firstAcceptedTimestampMs = existingAccepted.firstOrNull()?.timestampMs
+        firstAccepted = existingAccepted.firstOrNull()
         _liveState.value = RideLiveState(
             active.id, runningDistanceMeters,
             lastAcceptedAccuracyMeters = previousAccepted?.accuracyMeters,
@@ -209,7 +220,7 @@ class RideTrackingService : Service() {
                         previous.latitude, previous.longitude, point.latitude, point.longitude
                     )
                 }
-                if (firstAcceptedTimestampMs == null) firstAcceptedTimestampMs = point.timestampMs
+                if (firstAccepted == null) firstAccepted = point
                 previousAccepted = point
                 _liveState.value = RideLiveState(
                     id, runningDistanceMeters,

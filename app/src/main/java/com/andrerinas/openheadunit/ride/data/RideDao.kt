@@ -17,11 +17,13 @@ interface RideDao {
 
     /**
      * A targeted UPDATE rather than a full-row @Update: finishing a ride only ever changes these
-     * four columns, and this avoids a read-modify-write round trip through the caller.
+     * columns, and this avoids a read-modify-write round trip through the caller.
      */
     @Query(
         "UPDATE rides SET endTimestampMs = :endTimestampMs, state = :state, " +
-            "distanceMeters = :distanceMeters, durationMs = :durationMs WHERE id = :rideId"
+            "distanceMeters = :distanceMeters, durationMs = :durationMs, " +
+            "startLatitude = :startLatitude, startLongitude = :startLongitude, " +
+            "endLatitude = :endLatitude, endLongitude = :endLongitude WHERE id = :rideId"
     )
     suspend fun finishRide(
         rideId: Long,
@@ -29,6 +31,10 @@ interface RideDao {
         state: String,
         distanceMeters: Double,
         durationMs: Long,
+        startLatitude: Double?,
+        startLongitude: Double?,
+        endLatitude: Double?,
+        endLongitude: Double?,
     )
 
     /** The one ride still missing an end timestamp, if any. See RideRepository.activeRide(). */

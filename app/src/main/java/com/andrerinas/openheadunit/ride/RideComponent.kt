@@ -2,8 +2,10 @@ package com.andrerinas.openheadunit.ride
 
 import android.content.Context
 import androidx.room.Room
+import com.andrerinas.openheadunit.ride.data.MIGRATION_2_3
 import com.andrerinas.openheadunit.ride.data.RideDatabase
 import com.andrerinas.openheadunit.ride.data.RideRepository
+import com.andrerinas.openheadunit.ride.data.SavedPlaceRepository
 
 /**
  * The Ride Engine's own object graph. Deliberately separate from
@@ -14,14 +16,15 @@ import com.andrerinas.openheadunit.ride.data.RideRepository
  */
 class RideComponent private constructor(context: Context) {
 
-    // See RideDatabase's KDoc: no shipped release has used an earlier schema version, so a
-    // destructive fallback is correct here - there is no real user data to preserve yet. This
-    // must become a real Migration before this ever ships with a schema change.
+    // MIGRATION_2_3 is real (see RideDatabase's KDoc) - this database now holds real recorded
+    // rides. fallbackToDestructiveMigration() stays only as a safety net for any gap this
+    // explicit migration doesn't cover; Room always prefers a provided Migration over it.
     private val database = Room.databaseBuilder(
         context, RideDatabase::class.java, DATABASE_NAME
-    ).fallbackToDestructiveMigration().build()
+    ).addMigrations(MIGRATION_2_3).fallbackToDestructiveMigration().build()
 
     val repository = RideRepository(database.rideDao())
+    val savedPlaceRepository = SavedPlaceRepository(database.savedPlaceDao())
 
     companion object {
         private const val DATABASE_NAME = "ride-tracker.db"

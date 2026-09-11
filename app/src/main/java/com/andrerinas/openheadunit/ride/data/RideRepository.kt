@@ -34,9 +34,25 @@ class RideRepository(private val dao: RideDao) {
         dao.insertPoints(samples.map { it.toEntity(rideId) })
     }
 
-    /** Marks [rideId] FINISHED with its final computed totals. */
-    suspend fun finishRide(rideId: Long, endTimestampMs: Long, distanceMeters: Double, durationMs: Long) {
-        dao.finishRide(rideId, endTimestampMs, RideState.FINISHED.name, distanceMeters, durationMs)
+    /**
+     * Marks [rideId] FINISHED with its final computed totals. Start/end coordinates are the
+     * first/last *accepted* fix's position - null when a ride finished with zero accepted fixes,
+     * never a fabricated 0,0 - see [com.andrerinas.openheadunit.ride.domain.Ride]'s KDoc.
+     */
+    suspend fun finishRide(
+        rideId: Long,
+        endTimestampMs: Long,
+        distanceMeters: Double,
+        durationMs: Long,
+        startLatitude: Double? = null,
+        startLongitude: Double? = null,
+        endLatitude: Double? = null,
+        endLongitude: Double? = null,
+    ) {
+        dao.finishRide(
+            rideId, endTimestampMs, RideState.FINISHED.name, distanceMeters, durationMs,
+            startLatitude, startLongitude, endLatitude, endLongitude,
+        )
     }
 
     /**

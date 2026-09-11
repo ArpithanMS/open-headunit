@@ -17,4 +17,11 @@ data class Ride(
     val state: RideState,
     val distanceMeters: Double,
     val durationMs: Long,
+    /** The first/last *accepted* fix's position - null until the ride finishes (or if it finished
+     *  with zero accepted fixes; never a fabricated 0,0). What [com.andrerinas.openheadunit.ride.domain.RideClassifier]
+     *  compares against saved Home/Work places to label a finished ride in history. */
+    val startLatitude: Double? = null,
+    val startLongitude: Double? = null,
+    val endLatitude: Double? = null,
+    val endLongitude: Double? = null,
 )
