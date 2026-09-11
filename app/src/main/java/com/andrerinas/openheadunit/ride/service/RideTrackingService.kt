@@ -65,6 +65,12 @@ class RideTrackingService : Service() {
      * distance is measured from. A rejected fix never becomes this. */
     private var previousAccepted: RidePoint? = null
     private var firstAcceptedTimestampMs: Long? = null
+    /** The ride's own wall-clock start (Start tap, or the recovered Ride row's start after a
+     * restart) - what [Ride.durationMs] is measured from. Deliberately NOT first-accepted-fix to
+     * last-accepted-fix: that basis silently excludes GPS-acquisition time and would disagree
+     * with the elapsed clock RideTrackerFragment shows throughout the ride, which ticks from this
+     * same wall-clock start. */
+    private var rideStartTimestampMs: Long? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -110,9 +116,10 @@ class RideTrackingService : Service() {
             AppLog.i("RideTrackingService: StartRequested rejected from $state")
             return@withLock
         }
-        val startTimestampMs = System.currentTimeMillis()
-        val newRideId = repository.startRide(startTimestampMs)
+        val startedAtMs = System.currentTimeMillis()
+        val newRideId = repository.startRide(startedAtMs)
         rideId = newRideId
+        rideStartTimestampMs = startedAtMs
         state = result.newState
         sampleBuffer = mutableListOf()
         runningDistanceMeters = 0.0
@@ -130,12 +137,12 @@ class RideTrackingService : Service() {
         }
         locationEngine.stop()
         val id = rideId
-        val firstMs = firstAcceptedTimestampMs
+        val startedAtMs = rideStartTimestampMs
         if (id != null) {
             flushBufferLocked(id)
             val lastMs = previousAccepted?.timestampMs
             val endTimestampMs = lastMs ?: System.currentTimeMillis()
-            val durationMs = if (firstMs != null && lastMs != null) lastMs - firstMs else 0L
+            val durationMs = if (startedAtMs != null) (endTimestampMs - startedAtMs).coerceAtLeast(0L) else 0L
             repository.finishRide(id, endTimestampMs, runningDistanceMeters, durationMs)
             AppLog.i(
                 "RideTrackingService: ride $id finished, " +
@@ -144,6 +151,7 @@ class RideTrackingService : Service() {
         }
         state = result.newState
         rideId = null
+        rideStartTimestampMs = null
         stopForeground(true)
         stopSelf()
     }
@@ -161,6 +169,7 @@ class RideTrackingService : Service() {
         val existingSamples = repository.rawSamplesForRide(active.id)
         val existingAccepted = existingSamples.filter { it.accepted }.map { it.point }
         rideId = active.id
+        rideStartTimestampMs = active.startTimestampMs
         state = RideState.RIDING
         sampleBuffer = mutableListOf()
         runningDistanceMeters = RideMetrics.totalDistanceMeters(existingAccepted)

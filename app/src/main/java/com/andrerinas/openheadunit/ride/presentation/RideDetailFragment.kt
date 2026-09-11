@@ -1,12 +1,14 @@
 package com.andrerinas.openheadunit.ride.presentation
 
+import android.os.Build
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModel
@@ -14,6 +16,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.ride.domain.RidePoint
+import com.andrerinas.openheadunit.ride.domain.RouteSpeedColorScale
+import com.andrerinas.openheadunit.ride.domain.RouteSpeedGradient
+import com.andrerinas.openheadunit.ride.domain.RouteSpeedPalette
 import com.andrerinas.openheadunit.ride.domain.RouteSpeedSegment
 import com.andrerinas.openheadunit.ride.domain.RouteStatistics
 import com.andrerinas.openheadunit.utils.RideInstrumentStyler
@@ -41,11 +46,17 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * A single ride's route on a real basemap (see [MAP_STYLE_URL]) plus its full statistics. The
- * route line is colored per-leg by that leg's speed relative to the ride's own average moving
- * speed - see [RouteSpeedSegment] - a retrospective analysis of already-recorded GPS samples, not
- * a live/fabricated telemetry signal, so it doesn't run into the "no fabricated data" rule the
- * rest of Ride Tracker is built around.
+ * A single ride's route plus its full statistics. [RouteGeometryView] is the guaranteed-visible
+ * baseline (no network, no minSdk requirement) - a real MapLibre basemap is layered on top of it
+ * as an enhancement, only on API 21+ (MapLibre's own minSdk, above this app's github-flavor
+ * minSdk 16) and only once a style actually finishes loading over the network. See [isMapSupported]
+ * and [setUpMap]: this app must not lose route visualization just because a device is older than
+ * MapLibre supports, or because the viewer has no signal.
+ *
+ * The route line is colored per-leg by that leg's speed percentile within this ride's own speed
+ * distribution - see [RouteSpeedColorScale] - a retrospective analysis of already-recorded GPS
+ * samples, not a live/fabricated telemetry signal, so it doesn't run into the "no fabricated data"
+ * rule the rest of Ride Tracker is built around.
  */
 class RideDetailFragment : Fragment() {
 
@@ -59,23 +70,21 @@ class RideDetailFragment : Fragment() {
         }
     }
 
-    private lateinit var mapView: MapView
+    private lateinit var routeGeometryView: RouteGeometryView
+    private var mapView: MapView? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        // Must run before the MapView below is inflated/created.
-        MapLibre.getInstance(requireContext())
         val view = inflater.inflate(R.layout.fragment_ride_detail, container, false)
 
         view.findViewById<MaterialToolbar>(R.id.toolbar).setNavigationOnClickListener {
             findNavController().navigateUp()
         }
 
-        mapView = view.findViewById(R.id.map_view)
-        mapView.onCreate(savedInstanceState)
+        routeGeometryView = view.findViewById(R.id.route_geometry_view)
 
         val dateText = view.findViewById<TextView>(R.id.ride_detail_date)
         val gpsQualityFootnote = view.findViewById<TextView>(R.id.gps_quality_footnote)
@@ -85,11 +94,12 @@ class RideDetailFragment : Fragment() {
         // tiles - so only the floating text gets themed here.
         RideInstrumentStyler.applyTextOnly(primary = emptyList(), secondary = listOf(dateText))
 
-        view.findViewById<TextView>(R.id.zoom_in_button).setOnClickListener {
-            mapView.getMapAsync { it.easeCamera(CameraUpdateFactory.zoomIn()) }
-        }
-        view.findViewById<TextView>(R.id.zoom_out_button).setOnClickListener {
-            mapView.getMapAsync { it.easeCamera(CameraUpdateFactory.zoomOut()) }
+        if (isMapSupported()) {
+            setUpMap(view, savedInstanceState)
+        } else {
+            // route_geometry_view above is already a complete rendering on its own - there is
+            // nothing broken to recover from here, just no basemap layer to add on this device.
+            view.findViewById<View>(R.id.map_zoom_controls).visibility = View.GONE
         }
 
         viewModel.uiState.observe(viewLifecycleOwner) { state ->
@@ -100,9 +110,14 @@ class RideDetailFragment : Fragment() {
                     .format(Date(ride.startTimestampMs))
             }
 
-            mapView.getMapAsync { map ->
+            routeGeometryView.setRoute(state.acceptedRoutePoints)
+
+            mapView?.getMapAsync { map ->
                 map.setStyle(Style.Builder().fromUri(MAP_STYLE_URL)) {
                     renderRoute(map = map, points = state.acceptedRoutePoints, segments = state.speedSegments)
+                    // The enhanced map now shows real tiles and the same route - the always-on
+                    // Canvas baseline underneath it has done its job of being visible instantly.
+                    routeGeometryView.visibility = View.GONE
                 }
             }
 
@@ -112,10 +127,33 @@ class RideDetailFragment : Fragment() {
                 state.routeStatistics.averageAccuracyMeters.roundToInt()
             )
 
-            bindStats(view, state.routeStatistics)
+            bindStats(view, state.ride?.durationMs ?: 0L, state.routeStatistics)
         }
 
         return view
+    }
+
+    private fun isMapSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+
+    private fun setUpMap(root: View, savedInstanceState: Bundle?) {
+        // Application context, not the Fragment/Activity one - MapLibre.getInstance() is a
+        // process-wide singleton that otherwise ends up holding a long-lived reference to
+        // whichever Activity happened to create it first.
+        MapLibre.getInstance(requireContext().applicationContext)
+
+        val newMapView = MapView(requireContext())
+        newMapView.onCreate(savedInstanceState)
+        root.findViewById<FrameLayout>(R.id.map_container).addView(
+            newMapView, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        mapView = newMapView
+
+        root.findViewById<TextView>(R.id.zoom_in_button).setOnClickListener {
+            newMapView.getMapAsync { it.easeCamera(CameraUpdateFactory.zoomIn()) }
+        }
+        root.findViewById<TextView>(R.id.zoom_out_button).setOnClickListener {
+            newMapView.getMapAsync { it.easeCamera(CameraUpdateFactory.zoomOut()) }
+        }
     }
 
     private fun renderRoute(map: MapLibreMap, points: List<RidePoint>, segments: List<RouteSpeedSegment>) {
@@ -149,22 +187,21 @@ class RideDetailFragment : Fragment() {
     }
 
     /**
-     * A single continuous line (not one tiny LineString per leg - see below) colored along its
-     * length by [Expression.lineProgress] via `line-gradient`. This is deliberately NOT thousands
-     * of individually-colored 2-point segments: MapLibre's GeoJSON tiling simplifies/drops
-     * sub-pixel geometry per tile at low zoom, and a leg that's only a few metres long (typical
-     * GPS sample spacing) is sub-pixel as soon as a multi-km ride is zoomed to fit the screen - in
-     * practice this decimated the route down to nothing. A single LineString survives that
-     * simplification (only its vertex density drops), which is why this is the standard technique
-     * for exactly this "color a route by speed" use case.
+     * A single continuous line (not one tiny LineString per leg) colored along its length by
+     * [Expression.lineProgress] via `line-gradient`. This is deliberately NOT thousands of
+     * individually-colored 2-point segments: MapLibre's GeoJSON tiling simplifies/drops sub-pixel
+     * geometry per tile at low zoom, and a leg that's only a few metres long (typical GPS sample
+     * spacing) is sub-pixel as soon as a multi-km ride is zoomed to fit the screen - in practice
+     * this decimated the route down to nothing. A single LineString survives that simplification
+     * (only its vertex density drops), which is why this is the standard technique for exactly
+     * this "color a route by speed" use case.
      *
-     * Color is ranked against this ride's own speed distribution (percentiles), not a ratio to the
-     * mean - a stop-and-go city ride and a highway run should both use the full color range, not
-     * have the city ride sit mostly in one color because its mean is dragged down by traffic.
+     * All the percentile/color math itself lives in [RouteSpeedColorScale] (no MapLibre
+     * dependency there, so it's unit-testable) - this just turns its output into map draw calls.
      */
     private fun speedGradientExpression(points: List<RidePoint>, segments: List<RouteSpeedSegment>): Expression {
         val ctx = requireContext()
-        val palette = SpeedPalette(
+        val palette = RouteSpeedPalette(
             slowest = ContextCompat.getColor(ctx, R.color.ride_speed_slowest),
             belowAverage = ContextCompat.getColor(ctx, R.color.ride_speed_below_average),
             average = ContextCompat.getColor(ctx, R.color.ride_speed_average),
@@ -173,104 +210,22 @@ class RideDetailFragment : Fragment() {
             fastest = ContextCompat.getColor(ctx, R.color.ride_speed_fastest),
         )
 
-        if (segments.isEmpty()) {
+        val breakpoints = RouteSpeedColorScale.breakpoints(segments)
+        if (breakpoints == null || !breakpoints.hasMeaningfulSpread) {
+            // No segments, or every leg was essentially the same speed - a flat, neutral line is
+            // correct either way. Percentile banding would otherwise paint a uniform-speed ride as
+            // uniformly "slowest", since every value would sit at/below p15.
             return Expression.interpolate(
                 Expression.linear(), Expression.lineProgress(),
                 Expression.stop(0.0, Expression.color(palette.average)), Expression.stop(1.0, Expression.color(palette.average)),
             )
         }
 
-        val breakpoints = computeSpeedBreakpoints(segments)
-        val stops = buildGradientStops(points, segments)
+        val stops = RouteSpeedGradient.buildStops(points, segments, MAX_GRADIENT_STOPS)
         val stopExpressions = stops.map {
-            Expression.stop(it.progress, Expression.color(colorForSpeed(it.speedMetersPerSecond, breakpoints, palette)))
+            Expression.stop(it.progress, Expression.color(RouteSpeedColorScale.colorForSpeed(it.speedMetersPerSecond, breakpoints, palette)))
         }.toTypedArray()
         return Expression.interpolate(Expression.linear(), Expression.lineProgress(), *stopExpressions)
-    }
-
-    private data class SpeedPalette(
-        val slowest: Int, val belowAverage: Int, val average: Int,
-        val aboveAverage: Int, val fast: Int, val fastest: Int,
-    )
-
-    /** Nearest-rank percentiles of this ride's own leg speeds - the thresholds [colorForSpeed]
-     *  bands against. Slowest ~15% / below-average / around-average / above-average / fastest ~15%
-     *  (cyan 85th-95th, purple 95th-100th), matching the F1-telemetry-style scale this was asked
-     *  for. */
-    private data class SpeedBreakpoints(
-        val p15: Double, val p40: Double, val p60: Double, val p85: Double, val p95: Double, val max: Double,
-    )
-
-    private fun computeSpeedBreakpoints(segments: List<RouteSpeedSegment>): SpeedBreakpoints {
-        val sorted = segments.map { it.speedMetersPerSecond }.sorted()
-        fun percentile(p: Double): Double {
-            val index = (p / 100.0 * (sorted.size - 1)).roundToInt().coerceIn(0, sorted.size - 1)
-            return sorted[index]
-        }
-        return SpeedBreakpoints(
-            p15 = percentile(15.0), p40 = percentile(40.0), p60 = percentile(60.0),
-            p85 = percentile(85.0), p95 = percentile(95.0), max = sorted.last(),
-        )
-    }
-
-    private fun colorForSpeed(speed: Double, bp: SpeedBreakpoints, palette: SpeedPalette): Int = when {
-        speed <= bp.p15 -> palette.slowest
-        speed <= bp.p40 -> blendArgb(palette.slowest, palette.belowAverage, fractionBetween(speed, bp.p15, bp.p40))
-        speed <= bp.p60 -> blendArgb(palette.belowAverage, palette.average, fractionBetween(speed, bp.p40, bp.p60))
-        speed <= bp.p85 -> blendArgb(palette.average, palette.aboveAverage, fractionBetween(speed, bp.p60, bp.p85))
-        speed <= bp.p95 -> blendArgb(palette.aboveAverage, palette.fast, fractionBetween(speed, bp.p85, bp.p95))
-        else -> blendArgb(palette.fast, palette.fastest, fractionBetween(speed, bp.p95, bp.max))
-    }
-
-    private fun fractionBetween(value: Double, from: Double, to: Double): Float {
-        if (to <= from) return 1f
-        return ((value - from) / (to - from)).toFloat().coerceIn(0f, 1f)
-    }
-
-    private fun blendArgb(from: Int, to: Int, fraction: Float): Int = ColorUtils.blendARGB(from, to, fraction)
-
-    private data class GradientStop(val progress: Double, val speedMetersPerSecond: Double)
-
-    /**
-     * One (progress-along-line, local speed) pair per accepted point, thinned to at most
-     * [MAX_GRADIENT_STOPS] evenly-spaced points so the expression stays a reasonable size on a
-     * long ride (12,000+ points) - progress-thin resolution is indistinguishable from full
-     * resolution for something meant to be an "indicative" reference, not an instrument reading.
-     * Stops must be strictly increasing, so a run of stationary points (identical cumulative
-     * distance) collapses to a single stop rather than being individually emitted.
-     */
-    private fun buildGradientStops(points: List<RidePoint>, segments: List<RouteSpeedSegment>): List<GradientStop> {
-        if (points.size < 2 || segments.isEmpty()) return emptyList()
-
-        val cumulativeMeters = DoubleArray(points.size)
-        for (i in 1 until points.size) {
-            cumulativeMeters[i] = cumulativeMeters[i - 1] + segments[i - 1].distanceMeters
-        }
-        val totalMeters = cumulativeMeters.last()
-        if (totalMeters <= 0.0) return emptyList()
-
-        fun speedAt(index: Int): Double = when (index) {
-            0 -> segments.first().speedMetersPerSecond
-            points.lastIndex -> segments.last().speedMetersPerSecond
-            else -> (segments[index - 1].speedMetersPerSecond + segments[index].speedMetersPerSecond) / 2.0
-        }
-
-        val stride = ((points.size - 1).toDouble() / (MAX_GRADIENT_STOPS - 1)).coerceAtLeast(1.0)
-        val thinned = mutableListOf<GradientStop>()
-        var cursor = 0.0
-        while (cursor <= points.lastIndex.toDouble()) {
-            val index = cursor.roundToInt().coerceIn(0, points.lastIndex)
-            val progress = cumulativeMeters[index] / totalMeters
-            if (thinned.isEmpty() || progress > thinned.last().progress) {
-                thinned.add(GradientStop(progress, speedAt(index)))
-            }
-            cursor += stride
-        }
-        val lastProgress = 1.0
-        if (thinned.last().progress < lastProgress) {
-            thinned.add(GradientStop(lastProgress, speedAt(points.lastIndex)))
-        }
-        return thinned
     }
 
     private fun addOrUpdateMarker(style: Style, sourceId: String, layerId: String, point: RidePoint, colorRes: Int) {
@@ -300,12 +255,18 @@ class RideDetailFragment : Fragment() {
         val bounds = LatLngBounds.Builder().apply {
             points.forEach { include(LatLng(it.latitude, it.longitude)) }
         }.build()
-        map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, ROUTE_CAMERA_PADDING_PX))
+        val paddingPx = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP, ROUTE_CAMERA_PADDING_DP, resources.displayMetrics
+        ).toInt()
+        map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, paddingPx))
     }
 
-    private fun bindStats(root: View, stats: RouteStatistics) {
+    private fun bindStats(root: View, rideDurationMs: Long, stats: RouteStatistics) {
         bindStat(root, R.id.stat_distance, R.string.ride_stat_distance, formatKm(stats.distanceMeters))
-        bindStat(root, R.id.stat_duration, R.string.ride_stat_duration, formatDuration(stats.durationMs))
+        // Ride.durationMs (start tap to stop/reconciliation), not RouteStatistics.durationMs
+        // (first accepted GPS fix to last) - the latter silently excludes GPS-acquisition time
+        // and would disagree with History's list and the live elapsed clock shown while riding.
+        bindStat(root, R.id.stat_duration, R.string.ride_stat_duration, formatDuration(rideDurationMs))
         bindStat(root, R.id.stat_moving_time, R.string.ride_stat_moving_time, formatDuration(stats.movingDurationMs))
         bindStat(root, R.id.stat_avg_speed, R.string.ride_stat_avg_speed, formatKmh(stats.averageMovingSpeedMetersPerSecond))
         bindStat(root, R.id.stat_max_speed, R.string.ride_stat_max_speed, formatKmh(stats.maxSpeedMetersPerSecond))
@@ -330,7 +291,10 @@ class RideDetailFragment : Fragment() {
         getString(R.string.ride_stat_kmh_value, metersPerSecond * 3.6)
 
     private fun formatDuration(durationMs: Long): String {
-        val totalMinutes = durationMs / 60_000
+        // Rounds rather than floors, to match RideHistoryAdapter's "X min" formatting - otherwise
+        // the same ride can read 208 min in History (rounded) and "3h 28m" = 208 min here too, but
+        // the two came from floor vs round and would silently drift apart by a minute elsewhere.
+        val totalMinutes = (durationMs / 60_000.0).roundToInt()
         val hours = totalMinutes / 60
         val minutes = totalMinutes % 60
         return if (hours > 0) {
@@ -342,37 +306,38 @@ class RideDetailFragment : Fragment() {
 
     override fun onStart() {
         super.onStart()
-        mapView.onStart()
+        mapView?.onStart()
     }
 
     override fun onResume() {
         super.onResume()
-        mapView.onResume()
+        mapView?.onResume()
     }
 
     override fun onPause() {
-        mapView.onPause()
+        mapView?.onPause()
         super.onPause()
     }
 
     override fun onStop() {
-        mapView.onStop()
+        mapView?.onStop()
         super.onStop()
     }
 
     override fun onDestroyView() {
-        mapView.onDestroy()
+        mapView?.onDestroy()
+        mapView = null
         super.onDestroyView()
     }
 
     override fun onLowMemory() {
         super.onLowMemory()
-        mapView.onLowMemory()
+        mapView?.onLowMemory()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        mapView.onSaveInstanceState(outState)
+        mapView?.onSaveInstanceState(outState)
     }
 
     companion object {
@@ -397,7 +362,7 @@ class RideDetailFragment : Fragment() {
         private const val ROUTE_LINE_WIDTH = 4.5f
         private const val MARKER_RADIUS = 6f
         private const val MARKER_STROKE_WIDTH = 2f
-        private const val ROUTE_CAMERA_PADDING_PX = 96
+        private const val ROUTE_CAMERA_PADDING_DP = 32f
         private const val SINGLE_POINT_ZOOM = 15.0
     }
 }

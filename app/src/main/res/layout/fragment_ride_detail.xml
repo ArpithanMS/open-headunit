@@ -7,14 +7,29 @@
     android:background="?attr/colorSurface">
 
     <!-- Fills the whole screen behind the toolbar and stat overlays, like a Strava share card:
-         the route IS the background, not a small box above a separate stats list. A real
-         basemap (see RideDetailFragment) with the route drawn on top as a speed-colored line -
-         not the old plain-Canvas schematic projection, which had no real map underneath it. -->
-    <org.maplibre.android.maps.MapView
-        android:id="@+id/map_view"
+         the route IS the background, not a small box above a separate stats list. Always visible,
+         no network/API-level requirement - the guaranteed-baseline route rendering. -->
+    <com.andrerinas.openheadunit.ride.presentation.RouteGeometryView
+        android:id="@+id/route_geometry_view"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:background="?attr/colorSurfaceVariant"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Empty on purpose: RideDetailFragment adds a MapLibre MapView here programmatically, only
+         on API 21+ (MapLibre's own minSdk - this app's github flavor is minSdk 16) and only once
+         it decides to try loading a real basemap. Never declared in XML, since inflating
+         org.maplibre.android.maps.MapView directly would load MapLibre's classes unconditionally
+         on every API level, including ones it doesn't support. Sits above route_geometry_view and
+         replaces it visually once a style has actually loaded; falls back to the plain route view
+         beneath it if the device is too old or there's no network - see RideDetailFragment. -->
+    <FrameLayout
+        android:id="@+id/map_container"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
