@@ -12,4 +12,10 @@ data class RideLiveState(
     /** Accuracy of the most recently *accepted* fix - null before any fix has been accepted yet
      *  (e.g. immediately after Start, while GPS is still acquiring). */
     val lastAcceptedAccuracyMeters: Float?,
+    /** The most recently *accepted* fix's own reported speed (real Doppler/provider speed, from
+     *  [RidePoint.speedMetersPerSecond]) - null both before any fix has been accepted, and when
+     *  an accepted fix simply didn't report a speed (Location.hasSpeed() == false). Never a
+     *  position-diff estimate; that's a retrospective analysis for a finished ride's route (see
+     *  [RouteSpeedSegment]), not something to present as a live instantaneous reading. */
+    val lastAcceptedSpeedMetersPerSecond: Float?,
 )

@@ -73,6 +73,8 @@ class RideTrackerFragment : Fragment() {
     private lateinit var distanceValue: TextView
     private lateinit var elapsedLabel: TextView
     private lateinit var elapsedValue: TextView
+    private lateinit var speedLabel: TextView
+    private lateinit var speedValue: TextView
     private lateinit var gpsLabel: TextView
     private lateinit var gpsStatusText: TextView
     private lateinit var endRideButton: MaterialButton
@@ -112,6 +114,10 @@ class RideTrackerFragment : Fragment() {
         elapsedLabel = view.findViewById<View>(R.id.stat_elapsed).findViewById(R.id.stat_label)
         elapsedValue = view.findViewById<View>(R.id.stat_elapsed).findViewById(R.id.stat_value)
         elapsedLabel.text = getString(R.string.ride_stat_elapsed_label)
+        speedLabel = view.findViewById<View>(R.id.stat_speed).findViewById(R.id.stat_label)
+        speedValue = view.findViewById<View>(R.id.stat_speed).findViewById(R.id.stat_value)
+        speedLabel.text = getString(R.string.ride_stat_speed_label)
+        speedValue.text = getString(R.string.ride_stat_speed_unavailable)
         gpsLabel = view.findViewById(R.id.gps_label)
         gpsStatusText = view.findViewById(R.id.gps_status_text)
         endRideButton = view.findViewById(R.id.end_ride_button)
@@ -124,6 +130,13 @@ class RideTrackerFragment : Fragment() {
         viewModel.lastAcceptedAccuracyMeters.observe(viewLifecycleOwner) { accuracy ->
             lastAcceptedAccuracyMeters = accuracy
             if (viewModel.activeRide.value != null) updateGpsStatusText()
+        }
+        viewModel.lastAcceptedSpeedMetersPerSecond.observe(viewLifecycleOwner) { speed ->
+            speedValue.text = if (speed != null) {
+                getString(R.string.ride_stat_kmh_value, speed * 3.6)
+            } else {
+                getString(R.string.ride_stat_speed_unavailable)
+            }
         }
         viewModel.lastCompletedRide.observe(viewLifecycleOwner) { renderLastRide(it) }
 
@@ -189,11 +202,13 @@ class RideTrackerFragment : Fragment() {
             primaryTexts = listOfNotNull(
                 locationStatusText.takeIf { !isRiding },
                 distanceValue.takeIf { isRiding },
-                elapsedValue.takeIf { isRiding }
+                elapsedValue.takeIf { isRiding },
+                speedValue.takeIf { isRiding }
             ),
             secondaryTexts = listOfNotNull(
                 readyLabel, lastRideSummary, historyLink, gpsStatusText,
-                distanceLabel.takeIf { isRiding }, elapsedLabel.takeIf { isRiding }
+                distanceLabel.takeIf { isRiding }, elapsedLabel.takeIf { isRiding },
+                speedLabel.takeIf { isRiding }
             ),
             primaryButtons = if (!isRiding) listOf(startStopButton) else emptyList(),
             routinePanelButtons = if (isRiding) listOf(endRideButton) else emptyList(),

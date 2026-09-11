@@ -130,7 +130,10 @@ class RideTrackingService : Service() {
         runningDistanceMeters = 0.0
         previousAccepted = null
         firstAcceptedTimestampMs = null
-        _liveState.value = RideLiveState(newRideId, runningDistanceMeters, lastAcceptedAccuracyMeters = null)
+        _liveState.value = RideLiveState(
+            newRideId, runningDistanceMeters,
+            lastAcceptedAccuracyMeters = null, lastAcceptedSpeedMetersPerSecond = null,
+        )
         locationEngine.start(RideLocationEngine.Listener { point -> onRidePoint(point) })
         AppLog.i("RideTrackingService: ride $newRideId started")
     }
@@ -183,7 +186,9 @@ class RideTrackingService : Service() {
         previousAccepted = existingAccepted.lastOrNull()
         firstAcceptedTimestampMs = existingAccepted.firstOrNull()?.timestampMs
         _liveState.value = RideLiveState(
-            active.id, runningDistanceMeters, previousAccepted?.accuracyMeters
+            active.id, runningDistanceMeters,
+            lastAcceptedAccuracyMeters = previousAccepted?.accuracyMeters,
+            lastAcceptedSpeedMetersPerSecond = previousAccepted?.speedMetersPerSecond,
         )
         locationEngine.start(RideLocationEngine.Listener { point -> onRidePoint(point) })
         AppLog.i("RideTrackingService: recovered active ride ${active.id} after restart")
@@ -206,7 +211,11 @@ class RideTrackingService : Service() {
                 }
                 if (firstAcceptedTimestampMs == null) firstAcceptedTimestampMs = point.timestampMs
                 previousAccepted = point
-                _liveState.value = RideLiveState(id, runningDistanceMeters, point.accuracyMeters)
+                _liveState.value = RideLiveState(
+                    id, runningDistanceMeters,
+                    lastAcceptedAccuracyMeters = point.accuracyMeters,
+                    lastAcceptedSpeedMetersPerSecond = point.speedMetersPerSecond,
+                )
                 RideRawSample.accepted(point)
             }
 

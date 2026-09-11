@@ -39,6 +39,9 @@ class RideTrackerViewModel(application: Application) : AndroidViewModel(applicat
     private val _lastAcceptedAccuracyMeters = MutableLiveData<Float?>(null)
     val lastAcceptedAccuracyMeters: LiveData<Float?> = _lastAcceptedAccuracyMeters
 
+    private val _lastAcceptedSpeedMetersPerSecond = MutableLiveData<Float?>(null)
+    val lastAcceptedSpeedMetersPerSecond: LiveData<Float?> = _lastAcceptedSpeedMetersPerSecond
+
     private val _lastCompletedRide = MutableLiveData<Ride?>()
     val lastCompletedRide: LiveData<Ride?> = _lastCompletedRide
 
@@ -58,6 +61,7 @@ class RideTrackerViewModel(application: Application) : AndroidViewModel(applicat
                 if (state != null) {
                     _distanceMeters.value = state.runningDistanceMeters
                     _lastAcceptedAccuracyMeters.value = state.lastAcceptedAccuracyMeters
+                    _lastAcceptedSpeedMetersPerSecond.value = state.lastAcceptedSpeedMetersPerSecond
                 }
             }
         }
@@ -113,6 +117,7 @@ class RideTrackerViewModel(application: Application) : AndroidViewModel(applicat
         ContextCompat.startForegroundService(context, RideTrackingService.stopRideIntent(context))
         _distanceMeters.value = 0.0
         _lastAcceptedAccuracyMeters.value = null
+        _lastAcceptedSpeedMetersPerSecond.value = null
         refreshAfterDelay()
     }
 

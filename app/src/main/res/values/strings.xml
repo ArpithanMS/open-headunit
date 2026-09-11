@@ -1193,6 +1193,8 @@
     <string name="ride_elapsed_format">%1$02d:%2$02d:%3$02d</string>
     <string name="ride_stat_distance_label">Distance</string>
     <string name="ride_stat_elapsed_label">Elapsed</string>
+    <string name="ride_stat_speed_label">Speed</string>
+    <string name="ride_stat_speed_unavailable">—</string>
     <string name="ride_history_title">Ride History</string>
     <string name="ride_history_empty">No rides recorded yet</string>
     <string name="ride_history_item_summary">%1$.1f km · %2$d min</string>

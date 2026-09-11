@@ -4,10 +4,10 @@
     toggles their visibility on ride state rather than swapping fragments/screens, since it's the
     same "instrument" reflecting whichever state is real.
 
-    Deliberately NOT shown yet: a live speed metric, or a GPS accuracy figure. Neither is
-    available from RideTrackerViewModel today (see its class doc) - showing them would mean
-    faking data, which the design brief explicitly rules out. They arrive in the phase-2 pass
-    that adds a live presentation state from the Ride Engine.
+    Speed and the GPS accuracy figure (folded into gps_status_text) both come live from
+    RideTrackingService's own in-memory state - see RideTrackerViewModel's class doc. Speed shows
+    "—" rather than 0 km/h when the current fix didn't report one (Location.hasSpeed() == false) -
+    unknown and zero are different claims, and this screen doesn't fabricate the difference away.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -181,6 +181,11 @@
                     android:layout_weight="1" />
 
                 <include layout="@layout/stat_overlay_item" android:id="@+id/stat_elapsed"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+
+                <include layout="@layout/stat_overlay_item" android:id="@+id/stat_speed"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1" />
