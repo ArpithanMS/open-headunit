@@ -25,6 +25,31 @@ Google has introduced internal changes preventing projection from launching auto
 <img width="1280" height="800" alt="image" src="https://github.com/user-attachments/assets/f81149b3-a844-4657-87d2-a2867a5eb030" />
 <img width="1280" height="800" alt="image" src="https://github.com/user-attachments/assets/140bbfdb-5b4f-4d49-a419-85aa91b48371" />
 
+## Ride Tracker (Beta)
+
+This fork adds a second, independent feature alongside Android Auto projection: **Ride Tracker**, a motorcycle-oriented GPS ride recorder. It's built for a phone permanently mounted on a bike (this fork's own development/testing device is a Samsung Galaxy A23 on an NS400Z), and is designed to survive real riding conditions rather than a desk demo.
+
+Ride Tracker and the Android Auto/projection side of the app are two **separate product areas that can run together but neither depends on the other** — starting or stopping an Android Auto session never starts or stops a ride, and a ride keeps recording through AA connect/disconnect cycles, backgrounding, and screen-off.
+
+### What it does today
+
+- **Start/stop ride recording** from a dedicated Ride Tracker screen, with a persistent foreground-service notification and an on-screen recording indicator that doesn't rely on color alone.
+- **GPS quality filtering**: every raw fix is evaluated and either accepted or rejected (implausible jumps, poor accuracy, etc.) before it contributes to distance/route data - rejected fixes are still stored for later inspection, never silently dropped.
+- **Ride History and Ride Detail** screens: a list of completed rides, and a per-ride detail view with a real map (MapLibre + [OpenFreeMap](https://openfreemap.org/) tiles) showing the recorded route, colored per-segment by that ride's own speed distribution (an F1-telemetry-style percentile scale - red for the slowest stretches through purple for the fastest, ranked against *that specific ride*, not a fixed km/h scale).
+- **Offline/old-device fallback**: the map above is an enhancement, not a requirement. A dependency-free Canvas route renderer is always the baseline - it needs no network and no minimum SDK beyond the app's own, and is what's shown if the device is too old for MapLibre (API < 21) or there's no signal when viewing a ride.
+- **Stale-state reconciliation**: if the tracking service dies unexpectedly (process kill, OOM), the UI and notification don't keep claiming "recording" forever - the next time the screen is checked, a dead service is detected and the ride is closed out with whatever was actually recorded.
+
+### Status
+
+Validated on real rides on the target hardware (Samsung Galaxy A23 + NS400Z), including a 69.5 km / ~3.5 hour mixed ride with 99.9%+ GPS fix acceptance. Still under active development - see the project's own issue tracking for what's in progress. Not yet on the Play Store or GitHub release builds; build from source to try it (see Contributing below).
+
+### Architecture notes (for contributors)
+
+- `ride/domain` - pure Kotlin, no Android dependencies (quality policy, route statistics, speed-color-scale math). Unit-tested under `app/src/test/.../ride/domain`.
+- `ride/data` - Room persistence (raw samples + ride summaries), wrapped by `RideRepository` as the single seam every consumer goes through.
+- `ride/service/RideTrackingService` - the foreground service owning an active ride end-to-end; independent of `AapService`/the Android Auto pipeline by design.
+- `ride/presentation` - Fragments/ViewModels for Ride Tracker, Ride History, and Ride Detail.
+
 ## How to use
 **Check out the [Wiki](https://github.com/andreknieriem/open-headunit/wiki) for detailed documentation, setup guides and troubleshooting!**
 
