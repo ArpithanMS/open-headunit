@@ -5,6 +5,7 @@ import android.app.AppOpsManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.andrerinas.openheadunit.R
@@ -26,6 +27,10 @@ object AppPermissions {
         OVERLAY,
         /** "Modify system settings" special access, granted via a settings screen. */
         WRITE_SETTINGS,
+        /** "Ignore battery optimizations" - see [isBatteryOptimizationExempt]'s KDoc for why this
+         *  is in the registry at all: on a permanently-mounted headunit device this is not
+         *  cosmetic, it decides whether background services survive the ride. */
+        BATTERY_OPTIMIZATION,
     }
 
     data class Entry(
@@ -55,10 +60,24 @@ object AppPermissions {
             }
             Kind.OVERLAY -> isOverlayGranted(context)
             Kind.WRITE_SETTINGS -> isWriteSettingsGranted(context)
+            Kind.BATTERY_OPTIMIZATION -> isBatteryOptimizationExempt(context)
         }
     }
 
     val ALL: List<Entry> = listOf(
+        // Not optional, deliberately: found via real on-device evidence (a 370km ride where
+        // RideTrackingService died silently ~16 minutes in with no crash logged anywhere - a
+        // background-management kill, not an exception) that this app has no exemption from
+        // Doze/App Standby by default. AapService.kt already carries a 10-minute wake lock and a
+        // comment acknowledging the same class of problem for boot auto-start; this closes the
+        // gap for RideTrackingService/AutoRideMonitorService, which had no protection at all.
+        Entry(
+            id = "battery_optimization",
+            titleRes = R.string.perm_battery_title,
+            helpRes = R.string.perm_battery_help,
+            kind = Kind.BATTERY_OPTIMIZATION,
+            minSdk = Build.VERSION_CODES.M,
+        ),
         Entry(
             id = "mic",
             titleRes = R.string.perm_mic_title,
@@ -154,6 +173,16 @@ object AppPermissions {
         if (Settings.System.canWrite(context)) return true
 
         return isActuallyGranted(context, AppOpsManager.OPSTR_WRITE_SETTINGS)
+    }
+
+    /** True once the user has granted "Unrestricted"/"Don't optimize" battery mode - the only
+     *  thing that reliably keeps RideTrackingService/AutoRideMonitorService alive through Doze
+     *  and Samsung's own more aggressive background-process management on an idle, screen-off,
+     *  permanently-mounted device. */
+    fun isBatteryOptimizationExempt(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return pm.isIgnoringBatteryOptimizations(context.packageName)
     }
 
     /** Fallback for some devices (especially headunits) where Settings#xx is unreliable */

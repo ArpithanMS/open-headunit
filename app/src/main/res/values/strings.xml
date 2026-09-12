@@ -69,6 +69,8 @@
     <string name="perm_optional_format">%1$s (optional)</string>
     <string name="permissions">Permissions</string>
     <string name="permissions_desc">Review and grant the permissions the app needs</string>
+    <string name="perm_battery_title">Battery optimization</string>
+    <string name="perm_battery_help">Keeps Android Auto and Ride Tracker running in the background instead of being silently stopped after the screen turns off - essential on a permanently-mounted device.</string>
     <string name="perm_mic_title">Microphone</string>
     <string name="perm_mic_help">Lets Android Auto use voice commands, the Google Assistant and phone calls.</string>
     <string name="perm_location_title">Location</string>

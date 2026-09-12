@@ -108,6 +108,23 @@ class PermissionRowBinder(
                     }
                 }
             }
+            AppPermissions.Kind.BATTERY_OPTIMIZATION -> {
+                // The direct-request intent shows a one-tap system confirmation dialog rather
+                // than dropping the user into a settings list to find it themselves - some OEM
+                // skins (this app already has one Samsung-specific comment about this exact
+                // problem, see AppPermissions.ALL) still honor it correctly.
+                try {
+                    specialLauncher.launch(
+                        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri())
+                    )
+                } catch (e: Exception) {
+                    try {
+                        specialLauncher.launch(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    } catch (e2: Exception) {
+                        openAppSettings()
+                    }
+                }
+            }
         }
     }
 
