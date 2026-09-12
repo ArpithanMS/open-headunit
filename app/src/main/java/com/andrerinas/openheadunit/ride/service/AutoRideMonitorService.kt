@@ -10,11 +10,16 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.hardware.Sensor
+import android.hardware.SensorManager
+import android.hardware.TriggerEvent
+import android.hardware.TriggerEventListener
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
@@ -41,15 +46,26 @@ import kotlinx.coroutines.launch
  * session's product decision to accept the battery/permission/notification cost of true
  * always-on detection rather than a foreground-app-only compromise.
  *
- * Two distinct GPS sources feed the same state machine, never both at once:
- *  - While no ride is active ([RideTrackingService.liveState] is null), this service runs its
- *    own coarse, low-frequency [LocationManager] subscription (see [IDLE_POLL_INTERVAL_MS]) -
- *    just enough resolution to notice sustained motion, not to track a route.
+ * GPS duty-cycling: real on-device measurement this session (`dumpsys batterystats`) showed GNSS
+ * alone at ~82% of this app's total attributed battery cost whenever it's kept on - by a huge
+ * margin over CPU/screen/wakelocks combined - so this service deliberately avoids ever polling
+ * GPS_PROVIDER continuously while genuinely stationary:
+ *  - At rest (no ride active, no motion suspected), it only arms a one-shot
+ *    [Sensor.TYPE_SIGNIFICANT_MOTION] hardware trigger (near-zero power - batched on the sensor
+ *    hub, never touches the GNSS chip) and does not request any GPS fixes at all.
+ *  - The moment that trigger fires, it opens a bounded GPS "watch window": a coarse,
+ *    low-frequency [LocationManager] subscription (see [IDLE_POLL_INTERVAL_MS]) feeding
+ *    [AutoRideStateMachine], just enough resolution to notice *sustained* motion, not to track a
+ *    route. If nothing escalates past IDLE within [QUIET_TIMEOUT_MS] (a false alarm - the sensor
+ *    firing on a single bump/pickup, not real departure), the window closes and the significant-
+ *    motion trigger re-arms - back to near-zero cost.
+ *  - If a device genuinely lacks [Sensor.TYPE_SIGNIFICANT_MOTION] (checked at runtime, not
+ *    assumed), this falls back to the old always-on 15s poll rather than never watching at all.
  *  - The instant a ride becomes active (started manually, recovered after a process restart, or
- *    started by this service's own [AutoRideDecision.StartRide]), this service stops its own
- *    polling entirely and instead rides along on [RideTrackingService]'s existing 1Hz fixes via
- *    its `liveState` flow - there is no reason to hold two independent GPS subscriptions
- *    open at once, and RideTrackingService's fixes are strictly higher quality anyway.
+ *    started by this service's own [AutoRideDecision.StartRide]), this service closes any GPS
+ *    watch window and instead rides along on [RideTrackingService]'s existing 1Hz fixes via its
+ *    `liveState` flow - there is no reason to hold two independent GPS subscriptions open at
+ *    once, and RideTrackingService's fixes are strictly higher quality anyway.
  *
  * This is what lets [AutoRideStateMachine] keep evaluating auto-stop dwell/grace during a
  * *manually* started ride too, not only a self-started one: from this service's perspective a
@@ -57,16 +73,28 @@ import kotlinx.coroutines.launch
  * still resolve itself.
  *
  * A manual End Ride (or this service's own [AutoRideDecision.StopRide]) always makes
- * `liveState` go back to null, which resyncs the machine back to IDLE and resumes idle polling -
- * see `onLiveStateChanged`.
+ * `liveState` go back to null, which resyncs the machine back to IDLE and resumes significant-
+ * motion watching - see `onLiveStateChanged`.
  */
 class AutoRideMonitorService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val stateMachine = AutoRideStateMachine()
     private val locationManager by lazy { getSystemService(Context.LOCATION_SERVICE) as LocationManager }
+    private val sensorManager by lazy { getSystemService(Context.SENSOR_SERVICE) as SensorManager }
+    private val significantMotionSensor by lazy {
+        sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION)
+    }
+    private val handler = Handler(Looper.getMainLooper())
 
     private var idlePollingActive = false
+    private var significantMotionArmed = false
+
+    /** Recurring watchdog for an open GPS watch window - re-posts itself every [QUIET_TIMEOUT_MS]
+     *  while the window stays open. Driven by wall-clock time rather than incoming GPS samples so
+     *  a dead GPS zone (no fix ever arrives after the motion sensor fires) still gets caught,
+     *  not just a window where fixes arrive but never escalate past IDLE. */
+    private val quietTimeoutRunnable = Runnable { onQuietTimeoutFired() }
 
     private val idleLocationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
@@ -79,6 +107,17 @@ class AutoRideMonitorService : Service() {
         override fun onProviderEnabled(provider: String) {}
         override fun onProviderDisabled(provider: String) {
             AppLog.i("AutoRideMonitorService: $provider disabled")
+        }
+    }
+
+    private val significantMotionListener = object : TriggerEventListener() {
+        override fun onTrigger(event: TriggerEvent?) {
+            // TYPE_SIGNIFICANT_MOTION is one-shot: it already auto-disabled itself delivering
+            // this callback, so there is nothing to disarm here - only a decision to open a
+            // GPS watch window (see openWatchWindow's KDoc for what happens if it's a false alarm).
+            significantMotionArmed = false
+            AppLog.i("AutoRideMonitorService: significant motion detected, opening a GPS watch window")
+            openWatchWindow()
         }
     }
 
@@ -113,6 +152,7 @@ class AutoRideMonitorService : Service() {
 
     override fun onDestroy() {
         stopIdlePolling()
+        disarmSignificantMotionTrigger()
         scope.cancel()
         super.onDestroy()
     }
@@ -120,11 +160,13 @@ class AutoRideMonitorService : Service() {
     private fun onLiveStateChanged(liveState: RideLiveState?) {
         if (liveState == null) {
             stateMachine.onRideStopped()
-            startIdlePolling()
+            closeWatchWindow()
+            armSignificantMotionTrigger()
             return
         }
 
-        stopIdlePolling()
+        closeWatchWindow()
+        disarmSignificantMotionTrigger()
         if (stateMachine.state != AutoRideState.RECORDING && stateMachine.state != AutoRideState.STOP_CANDIDATE) {
             stateMachine.onRideStarted()
         }
@@ -141,9 +183,63 @@ class AutoRideMonitorService : Service() {
     private fun onIdleSample(sample: AutoRideSample) {
         if (stateMachine.onSample(sample) == AutoRideDecision.StartRide) {
             AppLog.i("AutoRideMonitorService: auto-starting a ride (sustained motion)")
-            stopIdlePolling()
+            closeWatchWindow()
             startService(RideTrackingService.startRideIntent(this))
         }
+    }
+
+    /** Fires every [QUIET_TIMEOUT_MS] while a watch window is open. If the state machine is still
+     *  sitting in IDLE (no sustained motion ever showed up - a false alarm, or GPS never even got
+     *  a fix in a dead zone) and a significant-motion sensor exists to fall back to, this closes
+     *  the window and goes back to near-zero-cost watching. If the state machine is mid-escalation
+     *  (SUSPECTED_MOTION/RIDING_CANDIDATE), or there's no sensor to fall back to, it just
+     *  reschedules itself rather than interrupting a real evaluation or a device that has no
+     *  cheaper alternative to always-on polling. */
+    private fun onQuietTimeoutFired() {
+        if (!idlePollingActive) return // window already closed for another reason
+        val canFallBackToSensor = significantMotionSensor != null
+        if (stateMachine.state == AutoRideState.IDLE && canFallBackToSensor) {
+            AppLog.i("AutoRideMonitorService: GPS watch window timed out with no sustained motion, back to significant-motion watching")
+            closeWatchWindow()
+            armSignificantMotionTrigger()
+        } else {
+            scheduleQuietTimeoutCheck()
+        }
+    }
+
+    /** No-op if a window is already open. Falls back to always-on polling (the pre-existing
+     *  behavior) if the sensor is unavailable on this device (checked at runtime, not assumed) or
+     *  the trigger request itself fails - never ends up watching nothing at all. */
+    private fun armSignificantMotionTrigger() {
+        if (significantMotionArmed || idlePollingActive) return
+        val sensor = significantMotionSensor
+        if (sensor == null) {
+            AppLog.w("AutoRideMonitorService: no TYPE_SIGNIFICANT_MOTION sensor, falling back to always-on idle polling")
+            openWatchWindow()
+            return
+        }
+        significantMotionArmed = sensorManager.requestTriggerSensor(significantMotionListener, sensor)
+        if (!significantMotionArmed) openWatchWindow() // request itself failed - same fallback
+    }
+
+    private fun disarmSignificantMotionTrigger() {
+        if (!significantMotionArmed) return
+        significantMotionSensor?.let { sensorManager.cancelTriggerSensor(significantMotionListener, it) }
+        significantMotionArmed = false
+    }
+
+    private fun openWatchWindow() {
+        startIdlePolling()
+        scheduleQuietTimeoutCheck()
+    }
+
+    private fun closeWatchWindow() {
+        handler.removeCallbacks(quietTimeoutRunnable)
+        stopIdlePolling()
+    }
+
+    private fun scheduleQuietTimeoutCheck() {
+        handler.postDelayed(quietTimeoutRunnable, QUIET_TIMEOUT_MS)
     }
 
     @SuppressLint("MissingPermission")
@@ -192,6 +288,14 @@ class AutoRideMonitorService : Service() {
          *  track a route. An initial/tunable placeholder (this session's own estimate), not a
          *  value derived from measured field data. */
         private const val IDLE_POLL_INTERVAL_MS = 15_000L
+
+        /** How long a GPS watch window stays open with no escalation past IDLE before giving up
+         *  and falling back to significant-motion-only watching. An initial/tunable placeholder,
+         *  not measured from real false-alarm-rate field data - long enough that a genuine slow
+         *  pull-away isn't cut off mid-evaluation (the state machine's own
+         *  [AutoRideStateMachine.Config.startSustainedDurationMs] is 30s), short enough that a
+         *  single bump/pickup doesn't leave GPS polling for the rest of the day. */
+        private const val QUIET_TIMEOUT_MS = 2 * 60_000L
 
         fun start(context: Context) {
             val intent = Intent(context, AutoRideMonitorService::class.java)
