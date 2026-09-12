@@ -22,6 +22,8 @@ import com.andrerinas.openheadunit.utils.AppThemeManager
 import com.andrerinas.openheadunit.utils.Settings
 import android.os.SystemClock
 import com.andrerinas.openheadunit.main.FloatingButtonManager
+import com.andrerinas.openheadunit.ride.RideEnginePreferences
+import com.andrerinas.openheadunit.ride.service.AutoRideMonitorService
 import com.andrerinas.openheadunit.ride.service.RideTrackingService
 import java.io.File
 
@@ -92,6 +94,7 @@ class App : Application(), Application.ActivityLifecycleCallbacks {
 
             AapNavigation.createNotificationChannel(this)
             RideTrackingService.createNotificationChannel(this)
+            AutoRideMonitorService.createNotificationChannel(this)
 
             val bootChannel = NotificationChannel(bootStartChannel, "Boot Auto-Start", NotificationManager.IMPORTANCE_HIGH)
             bootChannel.description = "Shown once after boot to open the app"
@@ -133,6 +136,13 @@ class App : Application(), Application.ActivityLifecycleCallbacks {
         // Apply app theme (runs the live manager when dynamic, or when a saved place
         // can force the app theme even over a static base).
         AppThemeManager.reapply(this, settings)
+
+        // Ensures the monitor is running on every process start (a normal launch, or the process
+        // being recreated after being killed) - not just right after the user flips the toggle.
+        // AutoRideBootReceiver covers the reboot-without-a-launch case; this covers every other one.
+        if (RideEnginePreferences.isAutoDetectionEnabled(this)) {
+            AutoRideMonitorService.start(this)
+        }
     }
 
     private var unlockedInitDone = false

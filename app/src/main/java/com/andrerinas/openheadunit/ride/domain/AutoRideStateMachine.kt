@@ -86,6 +86,21 @@ class AutoRideStateMachine(private val config: Config = Config()) {
         stopCandidateEnteredAtMs = null
     }
 
+    /** Sync point for a ride that is now active for *any* reason - a manual Start Ride tap, or
+     *  this machine's own prior [AutoRideDecision.StartRide]. Whoever owns this machine must call
+     *  this whenever a ride starts outside of [onSample] noticing it itself, or the machine would
+     *  keep escalating start-evidence while a ride is already running. */
+    fun onRideStarted() {
+        state = AutoRideState.RECORDING
+        motionStartedAtMs = null
+        stationarySinceMs = null
+        stopCandidateEnteredAtMs = null
+    }
+
+    /** Sync point for a ride that is no longer active for any reason (manual End Ride included) -
+     *  equivalent to [reset]; a distinct name because the call site's intent differs. */
+    fun onRideStopped() = reset()
+
     private fun onWatchingForStart(sample: AutoRideSample, isQualifyingMotion: Boolean): AutoRideDecision {
         if (!isQualifyingMotion) {
             motionStartedAtMs = null

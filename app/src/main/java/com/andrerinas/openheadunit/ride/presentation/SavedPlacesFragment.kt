@@ -13,6 +13,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,8 +23,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.ride.RideComponent
+import com.andrerinas.openheadunit.ride.RideEnginePreferences
 import com.andrerinas.openheadunit.ride.domain.SavedPlace
 import com.andrerinas.openheadunit.ride.domain.SavedPlaceRole
+import com.andrerinas.openheadunit.ride.service.AutoRideMonitorService
 import com.andrerinas.openheadunit.utils.RideInstrumentStyler
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
@@ -50,6 +53,21 @@ class SavedPlacesFragment : Fragment() {
         else pendingLocationEditor = null
     }
 
+    private var autoDetectSwitch: Switch? = null
+    private val requestAutoDetectPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            RideEnginePreferences.setAutoDetectionEnabled(requireContext(), true)
+            AutoRideMonitorService.start(requireContext())
+        } else {
+            autoDetectSwitch?.setOnCheckedChangeListener(null)
+            autoDetectSwitch?.isChecked = false
+            autoDetectSwitch?.setOnCheckedChangeListener { _, isChecked -> onAutoDetectToggled(isChecked) }
+            Toast.makeText(requireContext(), R.string.ride_auto_detect_permission_denied, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -60,6 +78,10 @@ class SavedPlacesFragment : Fragment() {
         val toolbar = view.findViewById<MaterialToolbar>(R.id.toolbar)
         toolbar.setNavigationOnClickListener { findNavController().navigateUp() }
         val descriptionText = view.findViewById<TextView>(R.id.saved_places_description)
+        val autoDetectTitle = view.findViewById<TextView>(R.id.auto_detect_title)
+        val autoDetectDescription = view.findViewById<TextView>(R.id.auto_detect_description)
+        val autoDetectSwitch = view.findViewById<Switch>(R.id.auto_detect_switch)
+        this.autoDetectSwitch = autoDetectSwitch
 
         val homeEditor = PlaceEditor(
             view.findViewById(R.id.home_place_editor), SavedPlaceRole.HOME, getString(R.string.ride_saved_place_home)
@@ -73,8 +95,10 @@ class SavedPlacesFragment : Fragment() {
         // included here, which would recolor them to the dimmer secondary tone.
         RideInstrumentStyler.style(
             root = view,
+            primaryTexts = listOf(autoDetectTitle),
             secondaryTexts = listOf(
-                descriptionText, homeEditor.label, homeEditor.statusText, workEditor.label, workEditor.statusText,
+                descriptionText, autoDetectDescription,
+                homeEditor.label, homeEditor.statusText, workEditor.label, workEditor.statusText,
             ),
             routinePanelButtons = listOf(
                 homeEditor.useLocationButton, homeEditor.saveButton, homeEditor.clearButton,
@@ -83,6 +107,10 @@ class SavedPlacesFragment : Fragment() {
             extraSurfaces = listOf(toolbar),
         )
 
+        autoDetectSwitch.setOnCheckedChangeListener(null)
+        autoDetectSwitch.isChecked = RideEnginePreferences.isAutoDetectionEnabled(requireContext())
+        autoDetectSwitch.setOnCheckedChangeListener { _, isChecked -> onAutoDetectToggled(isChecked) }
+
         viewLifecycleOwner.lifecycleScope.launch {
             val places = repository.all().associateBy { it.role }
             homeEditor.bind(places[SavedPlaceRole.HOME])
@@ -90,6 +118,20 @@ class SavedPlacesFragment : Fragment() {
         }
 
         return view
+    }
+
+    private fun onAutoDetectToggled(enabled: Boolean) {
+        if (!enabled) {
+            RideEnginePreferences.setAutoDetectionEnabled(requireContext(), false)
+            AutoRideMonitorService.stop(requireContext())
+            return
+        }
+        if (!hasLocationPermission()) {
+            requestAutoDetectPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            return
+        }
+        RideEnginePreferences.setAutoDetectionEnabled(requireContext(), true)
+        AutoRideMonitorService.start(requireContext())
     }
 
     private fun hasLocationPermission(): Boolean = ContextCompat.checkSelfPermission(

@@ -1177,6 +1177,12 @@
     <string name="ride_classification_both">%1$s → %2$s</string>
     <string name="ride_classification_from_only">From %1$s</string>
     <string name="ride_classification_to_only">To %1$s</string>
+    <string name="ride_auto_detect_notification_channel_name">Automatic Ride Detection</string>
+    <string name="ride_auto_detect_notification_title">Watching for rides</string>
+    <string name="ride_auto_detect_notification_text">Automatic ride detection is on</string>
+    <string name="ride_auto_detect_title">Automatic Ride Detection</string>
+    <string name="ride_auto_detect_description">Starts and stops recording on its own when it notices sustained motion - no confirmation prompt. Runs as an always-on background service with a permanent notification and extra battery use.</string>
+    <string name="ride_auto_detect_permission_denied">Location permission is required for automatic detection</string>
     <string name="ride_saved_places_title">Home &amp; Work</string>
     <string name="ride_saved_places_link">Home &amp; Work →</string>
     <string name="ride_saved_places_description">Used only to label rides in History ("Home → Work") - never affects whether a ride is recorded.</string>
