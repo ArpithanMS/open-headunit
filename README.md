@@ -38,17 +38,22 @@ Ride Tracker and the Android Auto/projection side of the app are two **separate 
 - **Ride History and Ride Detail** screens: a list of completed rides, and a per-ride detail view with a real map (MapLibre + [OpenFreeMap](https://openfreemap.org/) tiles) showing the recorded route, colored per-segment by that ride's own speed distribution (an F1-telemetry-style percentile scale - red for the slowest stretches through purple for the fastest, ranked against *that specific ride*, not a fixed km/h scale).
 - **Offline/old-device fallback**: the map above is an enhancement, not a requirement. A dependency-free Canvas route renderer is always the baseline - it needs no network and no minimum SDK beyond the app's own, and is what's shown if the device is too old for MapLibre (API < 21) or there's no signal when viewing a ride.
 - **Stale-state reconciliation**: if the tracking service dies unexpectedly (process kill, OOM), the UI and notification don't keep claiming "recording" forever - the next time the screen is checked, a dead service is detected and the ride is closed out with whatever was actually recorded.
+- **Home & Work**: optionally set two saved places (manual lat/lng entry, or "Use Current Location"); finished rides are labeled in History ("Home → Work") when their start/end fall within a place's radius. Purely a label - it never affects whether a ride is recorded.
+- **Automatic ride detection (opt-in, off by default)**: an always-on background service that watches for sustained motion and starts recording on its own, no confirmation prompt - and later auto-stops after a long stationary dwell. This is a real behavior change (a permanent notification, a continuous low-power GPS subscription, extra battery use), so it's a deliberate opt-in toggle on the Home & Work screen, not a default. While a ride (auto- or manually-started) is active, the detector rides along on the same GPS fixes the tracker is already using rather than opening a second location subscription.
 
 ### Status
 
 Validated on real rides on the target hardware (Samsung Galaxy A23 + NS400Z), including a 69.5 km / ~3.5 hour mixed ride with 99.9%+ GPS fix acceptance. Still under active development - see the project's own issue tracking for what's in progress. Not yet on the Play Store or GitHub release builds; build from source to try it (see Contributing below).
 
+Map-matching/road-snapping (drawing the recorded route pinned to the actual road rather than the raw GPS trace) was considered and deliberately deferred: GPS accuracy on real rides is already good enough (~7m average) that this is cosmetic polish, and doing it properly needs a routing/map-matching backend or third-party API this project doesn't currently depend on.
+
 ### Architecture notes (for contributors)
 
-- `ride/domain` - pure Kotlin, no Android dependencies (quality policy, route statistics, speed-color-scale math). Unit-tested under `app/src/test/.../ride/domain`.
-- `ride/data` - Room persistence (raw samples + ride summaries), wrapped by `RideRepository` as the single seam every consumer goes through.
+- `ride/domain` - pure Kotlin, no Android dependencies (quality policy, route statistics, speed-color-scale math, `AutoRideStateMachine`). Unit-tested under `app/src/test/.../ride/domain`.
+- `ride/data` - Room persistence (raw samples, ride summaries, saved places), wrapped by `RideRepository`/`SavedPlaceRepository` as the seam every consumer goes through.
 - `ride/service/RideTrackingService` - the foreground service owning an active ride end-to-end; independent of `AapService`/the Android Auto pipeline by design.
-- `ride/presentation` - Fragments/ViewModels for Ride Tracker, Ride History, and Ride Detail.
+- `ride/service/AutoRideMonitorService` - the opt-in always-on foreground service driving `AutoRideStateMachine` from real GPS.
+- `ride/presentation` - Fragments/ViewModels for Ride Tracker, Ride History, Ride Detail, and Home & Work.
 
 ## How to use
 **Check out the [Wiki](https://github.com/andreknieriem/open-headunit/wiki) for detailed documentation, setup guides and troubleshooting!**
