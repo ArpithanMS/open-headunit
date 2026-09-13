@@ -1227,6 +1227,27 @@
     <string name="ride_history_empty">No rides recorded yet</string>
     <string name="ride_history_item_summary">%1$.1f km · %2$d min</string>
     <string name="ride_history_item_description">Ride on %1$s, %2$.1f kilometres, %3$d minutes</string>
+    <string name="ride_records_title">Rider Records</string>
+    <string name="ride_records_link">Records →</string>
+    <string name="ride_records_empty">Record a few rides to start building your rider records.</string>
+    <!-- %1$.0f total lifetime km, %2$d total ride count -->
+    <string name="ride_records_summary">%1$.0f km across %2$d rides</string>
+    <string name="ride_records_section_distance">Distance</string>
+    <string name="ride_records_section_performance">Performance</string>
+    <string name="ride_records_section_exploration">Exploration</string>
+    <string name="ride_record_longest_trip_distance">Longest Trip</string>
+    <string name="ride_record_longest_trip_duration">Longest Trip (Duration)</string>
+    <string name="ride_record_longest_continuous_duration">Longest Continuous Ride</string>
+    <string name="ride_record_longest_continuous_distance">Longest Continuous Ride (Distance)</string>
+    <string name="ride_record_highest_speed">Highest Recorded Speed</string>
+    <string name="ride_record_highest_avg_speed">Highest Avg Moving Speed</string>
+    <string name="ride_record_most_in_a_day">Most Distance in a Day</string>
+    <string name="ride_record_most_in_a_month">Most Distance in a Month</string>
+    <string name="ride_record_farthest_from_home">Farthest From Home</string>
+    <string name="ride_record_not_set">Not set yet</string>
+    <!-- %1$s a formatted date/time, %2$d the ride's id -->
+    <string name="ride_record_subtext_ride">%1$s · Ride #%2$d</string>
+
     <string name="ride_detail_title">Ride Detail</string>
     <!-- %1$s an already-uppercased weekday name, e.g. "SATURDAY" -->
     <string name="ride_detail_weekday_format">%1$s RIDE</string>

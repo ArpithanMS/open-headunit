@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:minHeight="48dp"
+        app:title="@string/ride_records_title"
+        app:titleTextColor="@color/ride_text_primary"
+        app:navigationIcon="@drawable/ic_arrow_back_white"
+        app:navigationIconTint="@color/ride_text_primary"
+        app:navigationContentDescription="@string/back" />
+
+    <TextView
+        android:id="@+id/records_empty_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:paddingHorizontal="24dp"
+        android:text="@string/ride_records_empty"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <ScrollView
+        android:id="@+id/records_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingBottom="24dp">
+
+            <TextView
+                android:id="@+id/records_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:textSize="15sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="4dp"
+                android:background="@color/ride_structural_divider" />
+
+            <TextView style="@style/RideSectionLabel" android:layout_marginTop="12dp"
+                android:text="@string/ride_records_section_distance" />
+            <include layout="@layout/record_row" android:id="@+id/record_longest_trip_distance" />
+            <include layout="@layout/record_row" android:id="@+id/record_longest_trip_duration" />
+
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:layout_marginVertical="4dp" android:background="@color/ride_structural_divider" />
+
+            <TextView style="@style/RideSectionLabel" android:layout_marginTop="12dp"
+                android:text="@string/ride_records_section_performance" />
+            <include layout="@layout/record_row" android:id="@+id/record_longest_continuous_duration" />
+            <include layout="@layout/record_row" android:id="@+id/record_longest_continuous_distance" />
+            <include layout="@layout/record_row" android:id="@+id/record_highest_speed" />
+            <include layout="@layout/record_row" android:id="@+id/record_highest_avg_speed" />
+
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:layout_marginVertical="4dp" android:background="@color/ride_structural_divider" />
+
+            <TextView style="@style/RideSectionLabel" android:layout_marginTop="12dp"
+                android:text="@string/ride_records_section_exploration" />
+            <include layout="@layout/record_row" android:id="@+id/record_most_in_a_day" />
+            <include layout="@layout/record_row" android:id="@+id/record_most_in_a_month" />
+            <include layout="@layout/record_row" android:id="@+id/record_farthest_from_home" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>

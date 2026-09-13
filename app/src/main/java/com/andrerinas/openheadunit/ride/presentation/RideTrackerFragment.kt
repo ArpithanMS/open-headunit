@@ -67,6 +67,7 @@ class RideTrackerFragment : Fragment() {
     private lateinit var lastRideSummary: TextView
     private lateinit var historyLink: TextView
     private lateinit var savedPlacesLink: TextView
+    private lateinit var recordsLink: TextView
 
     // Recording content
     private lateinit var recordingContent: View
@@ -110,6 +111,10 @@ class RideTrackerFragment : Fragment() {
         savedPlacesLink = view.findViewById(R.id.saved_places_link)
         savedPlacesLink.setOnClickListener {
             findNavController().navigate(R.id.action_rideTrackerFragment_to_savedPlacesFragment)
+        }
+        recordsLink = view.findViewById(R.id.records_link)
+        recordsLink.setOnClickListener {
+            findNavController().navigate(R.id.action_rideTrackerFragment_to_recordsFragment)
         }
 
         recordingContent = view.findViewById(R.id.recording_content)
@@ -211,7 +216,7 @@ class RideTrackerFragment : Fragment() {
                 speedValue.takeIf { isRiding }
             ),
             secondaryTexts = listOfNotNull(
-                readyLabel, lastRideSummary, historyLink, savedPlacesLink, gpsStatusText,
+                readyLabel, lastRideSummary, historyLink, savedPlacesLink, recordsLink, gpsStatusText,
                 distanceLabel.takeIf { isRiding }, elapsedLabel.takeIf { isRiding },
                 speedLabel.takeIf { isRiding }
             ),

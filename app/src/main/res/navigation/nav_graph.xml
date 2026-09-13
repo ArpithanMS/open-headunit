@@ -49,6 +49,13 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_rideTrackerFragment_to_recordsFragment"
+            app:destination="@id/recordsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <fragment
@@ -73,6 +80,19 @@
         android:id="@+id/rideDetailFragment"
         android:name="com.andrerinas.openheadunit.ride.presentation.RideDetailFragment"
         android:label="@string/ride_detail_title" />
+
+    <fragment
+        android:id="@+id/recordsFragment"
+        android:name="com.andrerinas.openheadunit.ride.presentation.RecordsFragment"
+        android:label="@string/ride_records_title">
+        <action
+            android:id="@+id/action_recordsFragment_to_rideDetailFragment"
+            app:destination="@id/rideDetailFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
 
     <fragment
         android:id="@+id/settingsFragment"
