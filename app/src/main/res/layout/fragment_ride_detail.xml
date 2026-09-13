@@ -60,63 +60,127 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <TextView
-        android:id="@+id/ride_detail_date"
+    <!-- Compact ride identity pill: date/time + weekday, replacing what used to be a single
+         plain line - kept small and translucent on purpose so it reads as a caption, not a
+         headline competing with the route or the summary dock below. -->
+    <LinearLayout
+        android:id="@+id/ride_identity_pill"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/bg_ride_pill"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="8dp"
         android:layout_marginTop="12dp"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="7dp"
-        android:background="@drawable/bg_ride_scrim"
-        android:textSize="15sp"
-        android:textColor="?android:attr/textColorSecondary"
-        app:layout_constraintTop_toBottomOf="@id/app_bar"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginStart="20dp" />
-
-    <!-- Left column: distance, moving time, avg speed. Scrim background protects contrast
-         against the route drawn behind it (design spec: route text must stay readable for
-         dense and sparse routes alike). -->
-    <LinearLayout
-        android:id="@+id/stat_column_start"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="@drawable/bg_ride_scrim"
-        android:paddingHorizontal="14dp"
-        android:paddingVertical="10dp"
         android:layout_marginStart="20dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintVertical_bias="0.6">
+        app:layout_constraintTop_toBottomOf="@id/app_bar"
+        app:layout_constraintStart_toStartOf="parent">
 
-        <include layout="@layout/stat_overlay_item" android:id="@+id/stat_distance" />
-        <include layout="@layout/stat_overlay_item" android:id="@+id/stat_moving_time" />
-        <include layout="@layout/stat_overlay_item" android:id="@+id/stat_avg_speed" />
+        <TextView
+            android:id="@+id/ride_detail_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="?android:attr/textColorPrimary" />
+
+        <TextView
+            android:id="@+id/ride_detail_weekday"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:textSize="10sp"
+            android:letterSpacing="0.1"
+            android:textColor="?android:attr/textColorSecondary" />
 
     </LinearLayout>
 
-    <!-- Right column: max speed, total duration. GPS quality is a data-quality footnote, not a
-         headline number - it lives bottom-right in tiny type instead of this grid. -->
+    <!-- Single primary summary dock - a layered HUD replaces the previous two large floating
+         side columns: top row is the three headline numbers (equal-weight columns, value over
+         label), a hairline divider, then average moving speed as its own label-left/value-right
+         line so it doesn't compete visually with the headline row. GPS diagnostics deliberately
+         live outside this dock (see gps_quality_footnote) - ride performance and data-quality
+         metadata are different priorities and shouldn't share one visual weight class. -->
     <LinearLayout
-        android:id="@+id/stat_column_end"
-        android:layout_width="wrap_content"
+        android:id="@+id/stat_summary_dock"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="@drawable/bg_ride_scrim"
-        android:paddingHorizontal="14dp"
-        android:paddingVertical="10dp"
-        android:layout_marginEnd="20dp"
+        android:paddingHorizontal="18dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="12dp"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/map_zoom_controls"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintVertical_bias="0.6">
+        app:layout_constraintBottom_toBottomOf="parent">
 
-        <include layout="@layout/stat_overlay_item" android:id="@+id/stat_max_speed" />
-        <include layout="@layout/stat_overlay_item" android:id="@+id/stat_duration" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <include layout="@layout/stat_overlay_item_centered" android:id="@+id/stat_distance"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            <include layout="@layout/stat_overlay_item_centered" android:id="@+id/stat_duration"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+            <include layout="@layout/stat_overlay_item_centered" android:id="@+id/stat_max_speed"
+                android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" />
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="10dp"
+            android:background="@color/ride_structural_divider" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/stat_avg_speed_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/ride_stat_avg_speed"
+                android:textSize="11sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:textColor="?android:attr/textColorSecondary" />
+
+            <TextView
+                android:id="@+id/stat_avg_speed_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="?android:attr/textColorPrimary" />
+
+        </LinearLayout>
 
     </LinearLayout>
+
+    <!-- GPS diagnostics: technical metadata, not a ride-performance number - kept visually
+         separate from stat_summary_dock (small, muted, its own corner) so it never competes with
+         the primary summary. -->
+    <TextView
+        android:id="@+id/gps_quality_footnote"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:layout_marginEnd="20dp"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp"
+        android:background="@drawable/bg_ride_pill"
+        android:textSize="10sp"
+        android:textColor="@color/ride_text_tertiary"
+        app:layout_constraintBottom_toTopOf="@id/stat_summary_dock"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Zoom controls - the map otherwise only responds to pinch, which is awkward one-handed
          (e.g. reviewing a ride at a stop, gloves on). -->
@@ -176,7 +240,7 @@
         android:id="@+id/ride_found_content_group"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:constraint_referenced_ids="ride_detail_date,stat_column_start,stat_column_end,gps_quality_footnote" />
+        app:constraint_referenced_ids="ride_identity_pill,stat_summary_dock,gps_quality_footnote" />
 
     <TextView
         android:id="@+id/ride_not_found_message"

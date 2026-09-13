@@ -41,7 +41,7 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
-import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -88,14 +88,20 @@ class RideDetailFragment : Fragment() {
         routeGeometryView = view.findViewById(R.id.route_geometry_view)
 
         val dateText = view.findViewById<TextView>(R.id.ride_detail_date)
+        val weekdayText = view.findViewById<TextView>(R.id.ride_detail_weekday)
         val gpsQualityFootnote = view.findViewById<TextView>(R.id.gps_quality_footnote)
+        val avgSpeedLabel = view.findViewById<TextView>(R.id.stat_avg_speed_label)
+        val avgSpeedValue = view.findViewById<TextView>(R.id.stat_avg_speed_value)
         val foundContentGroup = view.findViewById<Group>(R.id.ride_found_content_group)
         val notFoundMessage = view.findViewById<TextView>(R.id.ride_not_found_message)
         // app_bar already carries its own fixed scrim in XML (contrast protection over the
         // route, not theme-driven), and the map itself must never get a painted background the
         // way RideInstrumentStyler.style() would apply to a root view - that would hide the
         // tiles - so only the floating text gets themed here.
-        RideInstrumentStyler.applyTextOnly(primary = emptyList(), secondary = listOf(dateText, notFoundMessage))
+        RideInstrumentStyler.applyTextOnly(
+            primary = listOf(dateText, avgSpeedValue),
+            secondary = listOf(weekdayText, notFoundMessage, avgSpeedLabel),
+        )
 
         if (isMapSupported()) {
             setUpMap(view, savedInstanceState)
@@ -117,8 +123,13 @@ class RideDetailFragment : Fragment() {
                     foundContentGroup.visibility = View.VISIBLE
                     notFoundMessage.visibility = View.GONE
 
-                    dateText.text = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault())
-                        .format(Date(state.ride.startTimestampMs))
+                    val startDate = Date(state.ride.startTimestampMs)
+                    dateText.text = SimpleDateFormat("d MMM yyyy '·' HH:mm", Locale.getDefault())
+                        .format(startDate).uppercase(Locale.getDefault())
+                    weekdayText.text = getString(
+                        R.string.ride_detail_weekday_format,
+                        SimpleDateFormat("EEEE", Locale.getDefault()).format(startDate).uppercase(Locale.getDefault())
+                    )
 
                     routeGeometryView.setRoute(state.acceptedRoutePoints)
 
@@ -279,9 +290,9 @@ class RideDetailFragment : Fragment() {
         // (first accepted GPS fix to last) - the latter silently excludes GPS-acquisition time
         // and would disagree with History's list and the live elapsed clock shown while riding.
         bindStat(root, R.id.stat_duration, R.string.ride_stat_duration, formatDuration(rideDurationMs))
-        bindStat(root, R.id.stat_moving_time, R.string.ride_stat_moving_time, formatDuration(stats.movingDurationMs))
-        bindStat(root, R.id.stat_avg_speed, R.string.ride_stat_avg_speed, formatKmh(stats.averageMovingSpeedMetersPerSecond))
         bindStat(root, R.id.stat_max_speed, R.string.ride_stat_max_speed, formatKmh(stats.maxSpeedMetersPerSecond))
+
+        root.findViewById<TextView>(R.id.stat_avg_speed_value).text = formatKmh(stats.averageMovingSpeedMetersPerSecond)
     }
 
     private fun bindStat(root: View, rowId: Int, labelRes: Int, value: String) {

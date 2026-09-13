@@ -1228,6 +1228,8 @@
     <string name="ride_history_item_summary">%1$.1f km · %2$d min</string>
     <string name="ride_history_item_description">Ride on %1$s, %2$.1f kilometres, %3$d minutes</string>
     <string name="ride_detail_title">Ride Detail</string>
+    <!-- %1$s an already-uppercased weekday name, e.g. "SATURDAY" -->
+    <string name="ride_detail_weekday_format">%1$s RIDE</string>
     <string name="ride_detail_not_found">Ride not found</string>
     <string name="ride_stat_distance">Distance</string>
     <string name="ride_stat_duration">Duration</string>

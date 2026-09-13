@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fully-rounded pill variant of bg_ride_scrim, for small floating badges (ride identity, GPS
+     footnote) that read as a distinct, lighter-weight element than the primary stat dock. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/ride_scrim" />
+    <corners android:radius="20dp" />
+</shape>
