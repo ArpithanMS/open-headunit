@@ -7,8 +7,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.hardware.Sensor
 import android.hardware.SensorManager
@@ -23,7 +25,9 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
+import com.andrerinas.openheadunit.BuildConfig
 import com.andrerinas.openheadunit.R
 import com.andrerinas.openheadunit.main.MainActivity
 import com.andrerinas.openheadunit.ride.domain.AutoRideDecision
@@ -61,6 +65,10 @@ import kotlinx.coroutines.launch
  *    motion trigger re-arms - back to near-zero cost.
  *  - If a device genuinely lacks [Sensor.TYPE_SIGNIFICANT_MOTION] (checked at runtime, not
  *    assumed), this falls back to the old always-on 15s poll rather than never watching at all.
+ *  - Even when armed on the sensor, a periodic safety-net poll (see [safetyNetRunnable]) opens a
+ *    real watch window every [SAFETY_NET_INTERVAL_MS] regardless - this app has no way to verify
+ *    from a desk that a given OEM's sensor-hub implementation reliably fires for real motorcycle
+ *    vibration, and a missed ride is too costly to bet entirely on one hardware sensor.
  *  - The instant a ride becomes active (started manually, recovered after a process restart, or
  *    started by this service's own [AutoRideDecision.StartRide]), this service closes any GPS
  *    watch window and instead rides along on [RideTrackingService]'s existing 1Hz fixes via its
@@ -96,6 +104,18 @@ class AutoRideMonitorService : Service() {
      *  not just a window where fixes arrive but never escalate past IDLE. */
     private val quietTimeoutRunnable = Runnable { onQuietTimeoutFired() }
 
+    /** Periodic backstop while armed on the significant-motion sensor alone: this app has no way
+     *  to verify from a desk that a given device's OEM sensor-hub implementation reliably fires
+     *  for real motorcycle vibration (as opposed to walking, its more common use case), and given
+     *  how costly a full miss is (see the 2026-09-12/13 incident this feature exists to fix), it
+     *  is not worth trusting the sensor alone. This opens a real watch window every
+     *  [SAFETY_NET_INTERVAL_MS] regardless of whether the sensor ever fires - still a large
+     *  reduction from the old always-on 15s poll, just not a zero-cost one. */
+    private val safetyNetRunnable = Runnable {
+        AppLog.i("AutoRideMonitorService: safety-net poll (significant-motion sensor hasn't fired)")
+        openWatchWindow()
+    }
+
     private val idleLocationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
             if (!idlePollingActive) return
@@ -116,9 +136,36 @@ class AutoRideMonitorService : Service() {
             // this callback, so there is nothing to disarm here - only a decision to open a
             // GPS watch window (see openWatchWindow's KDoc for what happens if it's a false alarm).
             significantMotionArmed = false
-            AppLog.i("AutoRideMonitorService: significant motion detected, opening a GPS watch window")
-            openWatchWindow()
+            onSignificantMotionDetected()
         }
+    }
+
+    /** Debug-build-only test hook (see [DEBUG_ACTION_SIMULATE_MOTION]/[DEBUG_ACTION_SIMULATE_SAMPLE]
+     *  KDoc) - compiled out of release builds entirely, not just disabled, since [BuildConfig.DEBUG]
+     *  gates whether this receiver ever gets registered. Exists because real hardware significant-
+     *  motion/GPS behavior is slow and inconvenient to reproduce on demand (a real ride, a real GPS
+     *  fix), so this drives the exact same internal code paths a real sensor/GPS event would. */
+    private val debugTestReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                DEBUG_ACTION_SIMULATE_MOTION -> {
+                    AppLog.i("AutoRideMonitorService: [DEBUG] simulating significant-motion trigger")
+                    significantMotionArmed = false
+                    onSignificantMotionDetected()
+                }
+                DEBUG_ACTION_SIMULATE_SAMPLE -> {
+                    val speed = intent.getFloatExtra(DEBUG_EXTRA_SPEED_MPS, -1f)
+                    if (speed < 0f) return
+                    AppLog.i("AutoRideMonitorService: [DEBUG] simulating a GPS sample at ${speed}m/s")
+                    onIdleSample(AutoRideSample(speed.toDouble(), System.currentTimeMillis()))
+                }
+            }
+        }
+    }
+
+    private fun onSignificantMotionDetected() {
+        AppLog.i("AutoRideMonitorService: significant motion detected, opening a GPS watch window")
+        openWatchWindow()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -143,6 +190,20 @@ class AutoRideMonitorService : Service() {
             return
         }
 
+        if (BuildConfig.DEBUG) {
+            val filter = IntentFilter().apply {
+                addAction(DEBUG_ACTION_SIMULATE_MOTION)
+                addAction(DEBUG_ACTION_SIMULATE_SAMPLE)
+            }
+            // RECEIVER_EXPORTED, not NOT_EXPORTED: a plain `adb shell am broadcast -p <pkg>`
+            // (unordered, shell UID) doesn't reach a NOT_EXPORTED dynamic receiver on this OS
+            // version - confirmed by testing this exact call and seeing nothing delivered. Safe
+            // here specifically because the whole receiver is compiled out of release builds by
+            // the BuildConfig.DEBUG gate above, not merely disabled at runtime.
+            ContextCompat.registerReceiver(this, debugTestReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
+            AppLog.i("AutoRideMonitorService: [DEBUG] test broadcast receiver registered")
+        }
+
         scope.launch {
             RideTrackingService.liveState.collect { onLiveStateChanged(it) }
         }
@@ -151,6 +212,13 @@ class AutoRideMonitorService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
 
     override fun onDestroy() {
+        if (BuildConfig.DEBUG) {
+            try {
+                unregisterReceiver(debugTestReceiver)
+            } catch (_: IllegalArgumentException) {
+                // Never registered (onCreate returned early before reaching that point).
+            }
+        }
         stopIdlePolling()
         disarmSignificantMotionTrigger()
         scope.cancel()
@@ -181,7 +249,11 @@ class AutoRideMonitorService : Service() {
     }
 
     private fun onIdleSample(sample: AutoRideSample) {
-        if (stateMachine.onSample(sample) == AutoRideDecision.StartRide) {
+        val decision = stateMachine.onSample(sample)
+        if (BuildConfig.DEBUG) {
+            AppLog.i("AutoRideMonitorService: [DEBUG] onIdleSample speed=${sample.speedMetersPerSecond} ts=${sample.timestampMs} -> state=${stateMachine.state} decision=$decision")
+        }
+        if (decision == AutoRideDecision.StartRide) {
             AppLog.i("AutoRideMonitorService: auto-starting a ride (sustained motion)")
             closeWatchWindow()
             startService(RideTrackingService.startRideIntent(this))
@@ -219,16 +291,22 @@ class AutoRideMonitorService : Service() {
             return
         }
         significantMotionArmed = sensorManager.requestTriggerSensor(significantMotionListener, sensor)
-        if (!significantMotionArmed) openWatchWindow() // request itself failed - same fallback
+        if (!significantMotionArmed) {
+            openWatchWindow() // request itself failed - same fallback
+            return
+        }
+        handler.postDelayed(safetyNetRunnable, SAFETY_NET_INTERVAL_MS)
     }
 
     private fun disarmSignificantMotionTrigger() {
+        handler.removeCallbacks(safetyNetRunnable)
         if (!significantMotionArmed) return
         significantMotionSensor?.let { sensorManager.cancelTriggerSensor(significantMotionListener, it) }
         significantMotionArmed = false
     }
 
     private fun openWatchWindow() {
+        handler.removeCallbacks(safetyNetRunnable)
         startIdlePolling()
         scheduleQuietTimeoutCheck()
     }
@@ -284,6 +362,21 @@ class AutoRideMonitorService : Service() {
         const val CHANNEL_ID = "auto_ride_monitor_v1"
         private const val NOTIFICATION_ID = 2002
 
+        /** Debug-build-only (see [BuildConfig.DEBUG] check at the registration site) test
+         *  trigger: `adb shell am broadcast -p <applicationId> -a com.andrerinas.openheadunit.ride.DEBUG_SIMULATE_SIGNIFICANT_MOTION`
+         *  simulates the hardware sensor firing, without needing to actually move the device. */
+        const val DEBUG_ACTION_SIMULATE_MOTION = "com.andrerinas.openheadunit.ride.DEBUG_SIMULATE_SIGNIFICANT_MOTION"
+
+        /** Debug-build-only test trigger: `adb shell am broadcast -p <applicationId> -a
+         *  com.andrerinas.openheadunit.ride.DEBUG_SIMULATE_GPS_SAMPLE --ef speed_mps <N>` feeds one
+         *  fake sample straight into the state machine - only takes effect while a watch window is
+         *  open (same as a real fix would only be considered then). Lets the full escalation ->
+         *  StartRide -> RideTrackingService pipeline be exercised without a real GPS fix, which
+         *  `adb shell cmd location providers set-test-provider-location` cannot itself simulate
+         *  (it has no `--speed` flag, and this pipeline is speed-gated). */
+        const val DEBUG_ACTION_SIMULATE_SAMPLE = "com.andrerinas.openheadunit.ride.DEBUG_SIMULATE_GPS_SAMPLE"
+        const val DEBUG_EXTRA_SPEED_MPS = "speed_mps"
+
         /** Coarse on purpose - this is only meant to notice sustained motion starting, not to
          *  track a route. An initial/tunable placeholder (this session's own estimate), not a
          *  value derived from measured field data. */
@@ -296,6 +389,14 @@ class AutoRideMonitorService : Service() {
          *  [AutoRideStateMachine.Config.startSustainedDurationMs] is 30s), short enough that a
          *  single bump/pickup doesn't leave GPS polling for the rest of the day. */
         private const val QUIET_TIMEOUT_MS = 2 * 60_000L
+
+        /** How often to open a real watch window regardless of whether the significant-motion
+         *  sensor ever fires, as a reliability backstop (see [safetyNetRunnable]'s KDoc) - a real
+         *  bug/OEM-sensitivity failure here is a *missed ride*, not a minor glitch, so this session
+         *  deliberately trades a little more battery for a bounded worst-case detection latency
+         *  rather than betting everything on one hardware sensor firing correctly. An initial/
+         *  tunable placeholder, not measured from real sensor-reliability field data. */
+        private const val SAFETY_NET_INTERVAL_MS = 5 * 60_000L
 
         fun start(context: Context) {
             val intent = Intent(context, AutoRideMonitorService::class.java)
